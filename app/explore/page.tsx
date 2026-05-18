@@ -111,7 +111,7 @@ export default function ExplorePage() {
         return;
       }
 
-      const memberships = membershipData as MembershipRow[];
+      const memberships = membershipData as unknown as MembershipRow[];
 
       const mergedProfiles: ExploreProfile[] = profileData.map((profile) => {
         const profileMemberships = memberships.filter(

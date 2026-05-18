@@ -1,132 +1,73 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import Navbar from "../../../components/Navbar";
 import { supabase } from "../../../lib/supabase";
 
-type PublicProfileForm = {
-  full_name: string;
-  public_slug: string;
-  headline: string;
-  bio: string;
-  primary_sport: string;
-  position: string;
-  country: string;
-  state: string;
-  gender: string;
-  age_group: string;
-  height_cm: string;
-  weight_kg: string;
-  dominant_side: string;
-  profile_photo_url: string;
-  contact_email: string;
-  is_public: boolean;
-};
-
 export default function PublicProfilePage() {
-  const [form, setForm] = useState<PublicProfileForm>({
-    full_name: "",
-    public_slug: "",
-    headline: "",
-    bio: "",
-    primary_sport: "",
-    position: "",
-    country: "",
-    state: "",
-    gender: "",
-    age_group: "",
-    height_cm: "",
-    weight_kg: "",
-    dominant_side: "",
-    profile_photo_url: "",
-    contact_email: "",
-    is_public: true,
-  });
+  const [fullName, setFullName] = useState("");
+  const [headline, setHeadline] = useState("");
+  const [bio, setBio] = useState("");
+  const [publicSlug, setPublicSlug] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [primarySport, setPrimarySport] = useState("");
+  const [position, setPosition] = useState("");
+  const [stateRegion, setStateRegion] = useState("");
+  const [country, setCountry] = useState("");
+
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<"success" | "error" | "info">(
-    "info"
-  );
+  const [messageType, setMessageType] = useState<
+    "success" | "error" | "info"
+  >("info");
 
   useEffect(() => {
     const loadProfile = async () => {
-      setLoading(true);
-
       const {
         data: { user },
-        error: userError,
       } = await supabase.auth.getUser();
 
-      if (userError || !user) {
-        setMessageType("error");
-        setMessage("You must be logged in.");
-        setLoading(false);
-        return;
-      }
+      if (!user) return;
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("profiles")
-        .select(
-          "full_name, public_slug, headline, bio, primary_sport, position, country, state, gender, age_group, height_cm, weight_kg, dominant_side, profile_photo_url, contact_email, is_public"
-        )
+        .select("*")
         .eq("id", user.id)
         .single();
 
-      if (error) {
-        setMessageType("error");
-        setMessage("Could not load profile.");
-        setLoading(false);
-        return;
-      }
+      if (!data) return;
 
-      setForm({
-        full_name: data.full_name || "",
-        public_slug: data.public_slug || "",
-        headline: data.headline || "",
-        bio: data.bio || "",
-        primary_sport: data.primary_sport || "",
-        position: data.position || "",
-        country: data.country || "",
-        state: data.state || "",
-        gender: data.gender || "",
-        age_group: data.age_group || "",
-        height_cm: data.height_cm ? String(data.height_cm) : "",
-        weight_kg: data.weight_kg ? String(data.weight_kg) : "",
-        dominant_side: data.dominant_side || "",
-        profile_photo_url: data.profile_photo_url || "",
-        contact_email: data.contact_email || "",
-        is_public: data.is_public ?? true,
-      });
+      setFullName(data.full_name || "");
+      setHeadline(data.headline || "");
+      setBio(data.bio || "");
+      setPublicSlug(data.public_slug || "");
+      setIsPublic(data.is_public ?? true);
 
-      setLoading(false);
+      setPrimarySport(data.primary_sport || "");
+      setPosition(data.position || "");
+      setStateRegion(data.state || "");
+      setCountry(data.country || "");
+
+      setProfilePhotoUrl(data.profile_photo_url || "");
     };
 
     loadProfile();
   }, []);
 
-  const handleChange = (
-    field: keyof PublicProfileForm,
-    value: string | boolean
+  const handleImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    setForm((prev) => ({
-      ...prev,
-      [field]:
-        field === "public_slug" && typeof value === "string"
-          ? value
-              .toLowerCase()
-              .trim()
-              .replace(/\s+/g, "-")
-              .replace(/[^a-z0-9-]/g, "")
-          : value,
-    }));
-  };
+    const file = e.target.files?.[0];
 
-  const handleSave = async () => {
-    setSaving(true);
-    setMessage("Saving...");
+    if (!file) return;
+
+    setUploadingImage(true);
+    setMessage("Uploading image...");
     setMessageType("info");
 
     const {
@@ -135,336 +76,302 @@ export default function PublicProfilePage() {
 
     if (!user) {
       setMessageType("error");
-      setMessage("Not logged in.");
-      setSaving(false);
+      setMessage("You must be logged in.");
+      setUploadingImage(false);
       return;
     }
 
-    if (!form.public_slug) {
+    const fileExt = file.name.split(".").pop();
+
+    const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+
+    const filePath = `profiles/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("profile-photos")
+      .upload(filePath, file);
+
+    if (uploadError) {
       setMessageType("error");
-      setMessage("Public slug is required.");
-      setSaving(false);
+      setMessage(`Upload failed: ${uploadError.message}`);
+      setUploadingImage(false);
       return;
     }
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        full_name: form.full_name || null,
-        public_slug: form.public_slug,
-        headline: form.headline || null,
-        bio: form.bio || null,
-        primary_sport: form.primary_sport || null,
-        position: form.position || null,
-        country: form.country || null,
-        state: form.state || null,
-        gender: form.gender || null,
-        age_group: form.age_group || null,
-        height_cm: form.height_cm ? Number(form.height_cm) : null,
-        weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
-        dominant_side: form.dominant_side || null,
-        profile_photo_url: form.profile_photo_url || null,
-        contact_email: form.contact_email || null,
-        is_public: form.is_public,
-      })
-      .eq("id", user.id);
+    const { data } = supabase.storage
+      .from("profile-photos")
+      .getPublicUrl(filePath);
+
+    const publicUrl = data.publicUrl;
+
+    setProfilePhotoUrl(publicUrl);
+
+    setMessageType("success");
+    setMessage("Profile photo uploaded.");
+
+    setUploadingImage(false);
+  };
+
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    setMessage("Saving profile...");
+    setMessageType("info");
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setMessageType("error");
+      setMessage("You must be logged in.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.from("profiles").upsert({
+      id: user.id,
+      email: user.email,
+      full_name: fullName,
+      headline,
+      bio,
+      public_slug: publicSlug,
+      is_public: isPublic,
+      primary_sport: primarySport,
+      position,
+      state: stateRegion,
+      country,
+      profile_photo_url: profilePhotoUrl,
+    });
 
     if (error) {
       setMessageType("error");
-      setMessage(error.message);
-      setSaving(false);
+      setMessage(`Error saving profile: ${error.message}`);
+      setLoading(false);
       return;
     }
 
     setMessageType("success");
     setMessage("Profile updated successfully.");
-    setSaving(false);
-  };
 
-  const publicUrl = form.public_slug ? `/p/${form.public_slug}` : "";
+    setLoading(false);
+  };
 
   return (
     <main className="min-h-screen bg-[#0B1F5C] text-white">
       <Navbar />
 
-      <section className="mx-auto max-w-6xl px-6 py-16 md:px-10">
+      <section className="mx-auto max-w-5xl px-6 py-16 md:px-10">
         <div className="mb-10">
-          <h1 className="text-4xl font-extrabold">Edit Public Profile</h1>
-          <p className="mt-3 text-white/70">
-            Control what recruiters and coaches see.
+          <p className="mb-3 text-sm uppercase tracking-[0.25em] text-[#D8F200]">
+            Public Profile
+          </p>
+
+          <h1 className="text-4xl font-extrabold md:text-5xl">
+            Edit your PLAYR profile
+          </h1>
+
+          <p className="mt-3 text-white/75">
+            Manage your public athlete identity and profile information.
           </p>
         </div>
 
-        {loading ? (
-          <p>Loading...</p>
-        ) : (
-          <div className="grid gap-8 lg:grid-cols-2">
-            <div className="space-y-6 rounded-3xl bg-white/10 p-8">
-              <div>
-                <label>Name</label>
-                <input
-                  value={form.full_name}
-                  onChange={(e) => handleChange("full_name", e.target.value)}
-                  className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                />
+        <div className="space-y-6 rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur">
+          
+          {/* PROFILE IMAGE */}
+          <div>
+            <label className="mb-3 block text-sm font-medium">
+              Profile Photo
+            </label>
+
+            {profilePhotoUrl ? (
+              <img
+                src={profilePhotoUrl}
+                alt="Profile"
+                className="mb-4 h-32 w-32 rounded-2xl object-cover"
+              />
+            ) : (
+              <div className="mb-4 flex h-32 w-32 items-center justify-center rounded-2xl bg-[#081642] text-sm text-white/60">
+                No Photo
               </div>
+            )}
 
-              <div>
-                <label>Public Slug</label>
-                <input
-                  value={form.public_slug}
-                  onChange={(e) => handleChange("public_slug", e.target.value)}
-                  className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                />
-                <p className="mt-2 text-sm text-white/60">
-                  URL: {publicUrl || "/p/your-slug"}
-                </p>
-              </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="block w-full text-sm text-white"
+            />
 
-              <div>
-                <label>Headline</label>
-                <input
-                  value={form.headline}
-                  onChange={(e) => handleChange("headline", e.target.value)}
-                  className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                />
-              </div>
+            {uploadingImage && (
+              <p className="mt-2 text-sm text-white/70">
+                Uploading image...
+              </p>
+            )}
+          </div>
 
-              <div>
-                <label>Bio</label>
-                <textarea
-                  value={form.bio}
-                  onChange={(e) => handleChange("bio", e.target.value)}
-                  rows={4}
-                  className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                />
-              </div>
+          {/* FULL NAME */}
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Full Name
+            </label>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label>Primary Sport</label>
-                  <select
-                    value={form.primary_sport}
-                    onChange={(e) =>
-                      handleChange("primary_sport", e.target.value)
-                    }
-                    className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                  >
-                    <option value="">Select sport</option>
-                    <option>Basketball</option>
-                    <option>Football</option>
-                  </select>
-                </div>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Enter your full name"
+              className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
+            />
+          </div>
 
-                <div>
-                  <label>Primary Position</label>
-                  <input
-                    value={form.position}
-                    onChange={(e) => handleChange("position", e.target.value)}
-                    placeholder="e.g. Point Guard"
-                    className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                  />
-                </div>
-              </div>
+          {/* HEADLINE */}
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Headline
+            </label>
 
-              <div>
-                <label>Profile Photo URL</label>
-                <input
-                  value={form.profile_photo_url}
-                  onChange={(e) =>
-                    handleChange("profile_photo_url", e.target.value)
-                  }
-                  placeholder="https://..."
-                  className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                />
-              </div>
+            <input
+              type="text"
+              value={headline}
+              onChange={(e) => setHeadline(e.target.value)}
+              placeholder="e.g. Basketball Guard | Newcastle Falcons"
+              className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
+            />
+          </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label>Country</label>
-                  <input
-                    value={form.country}
-                    onChange={(e) => handleChange("country", e.target.value)}
-                    placeholder="e.g. Australia"
-                    className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                  />
-                </div>
+          {/* BIO */}
+          <div>
+            <label className="mb-2 block text-sm font-medium">Bio</label>
 
-                <div>
-                  <label>State / Region</label>
-                  <input
-                    value={form.state}
-                    onChange={(e) => handleChange("state", e.target.value)}
-                    placeholder="e.g. NSW"
-                    className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                  />
-                </div>
-              </div>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Tell people about yourself..."
+              rows={5}
+              className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
+            />
+          </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label>Gender</label>
-                  <select
-                    value={form.gender}
-                    onChange={(e) => handleChange("gender", e.target.value)}
-                    className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                  >
-                    <option value="">Select gender</option>
-                    <option>Boys</option>
-                    <option>Girls</option>
-                    <option>Men</option>
-                    <option>Women</option>
-                    <option>Mixed</option>
-                  </select>
-                </div>
+          {/* PUBLIC SLUG */}
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Public Profile URL
+            </label>
 
-                <div>
-                  <label>Age Group</label>
-                  <input
-                    value={form.age_group}
-                    onChange={(e) => handleChange("age_group", e.target.value)}
-                    placeholder="e.g. U14"
-                    className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                  />
-                </div>
-              </div>
+            <input
+              type="text"
+              value={publicSlug}
+              onChange={(e) => setPublicSlug(e.target.value)}
+              placeholder="e.g. josh-phillips"
+              className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
+            />
 
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <label>Height (cm)</label>
-                  <input
-                    value={form.height_cm}
-                    onChange={(e) => handleChange("height_cm", e.target.value)}
-                    placeholder="e.g. 184"
-                    className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                  />
-                </div>
+            <p className="mt-2 text-sm text-white/60">
+              Your public profile will appear at:
+            </p>
 
-                <div>
-                  <label>Weight (kg)</label>
-                  <input
-                    value={form.weight_kg}
-                    onChange={(e) => handleChange("weight_kg", e.target.value)}
-                    placeholder="e.g. 78"
-                    className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                  />
-                </div>
+            <p className="mt-1 text-sm text-[#D8F200]">
+              /p/{publicSlug || "your-name"}
+            </p>
+          </div>
 
-                <div>
-                  <label>Dominant Side</label>
-                  <input
-                    value={form.dominant_side}
-                    onChange={(e) =>
-                      handleChange("dominant_side", e.target.value)
-                    }
-                    placeholder="e.g. Right"
-                    className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label>Contact Email</label>
-                <input
-                  value={form.contact_email}
-                  onChange={(e) =>
-                    handleChange("contact_email", e.target.value)
-                  }
-                  placeholder="Public contact email"
-                  className="mt-2 w-full rounded-xl bg-[#081642] px-4 py-3"
-                />
-              </div>
-
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.is_public}
-                  onChange={(e) => handleChange("is_public", e.target.checked)}
-                />
-                Make profile public
+          {/* SPORT + POSITION */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Primary Sport
               </label>
 
-              <button
-                onClick={handleSave}
-                className="w-full rounded-xl bg-[#D8F200] py-3 font-bold text-[#0B1F5C]"
-              >
-                {saving ? "Saving..." : "Save"}
-              </button>
-
-              {message && (
-                <div
-                  className={`rounded-xl p-3 text-sm ${
-                    messageType === "success"
-                      ? "bg-green-500/20 text-green-200"
-                      : messageType === "error"
-                      ? "bg-red-500/20 text-red-200"
-                      : "bg-white/10 text-white"
-                  }`}
-                >
-                  {message}
-                </div>
-              )}
+              <input
+                type="text"
+                value={primarySport}
+                onChange={(e) => setPrimarySport(e.target.value)}
+                placeholder="e.g. Basketball"
+                className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
+              />
             </div>
 
-            <div className="rounded-3xl bg-white/10 p-8">
-              <h2 className="mb-4 text-2xl font-bold">Preview</h2>
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Position
+              </label>
 
-              <div className="rounded-2xl bg-[#081642] p-6">
-                {form.profile_photo_url ? (
-                  <img
-                    src={form.profile_photo_url}
-                    alt={form.full_name || "Profile"}
-                    className="mb-4 h-28 w-28 rounded-2xl object-cover"
-                  />
-                ) : null}
-
-                <h3 className="text-2xl font-bold">
-                  {form.full_name || "Your Name"}
-                </h3>
-
-                <p className="mt-2 text-white/70">
-                  {form.headline || "Your headline"}
-                </p>
-
-                <p className="mt-4 text-white/70">
-                  {form.bio || "Your bio"}
-                </p>
-
-                <div className="mt-4 space-y-2 text-white/70">
-                  <p>{form.primary_sport || "Sport not set"}</p>
-                  <p>{form.position || "Position not set"}</p>
-                  <p>
-                    {[form.state, form.country].filter(Boolean).join(", ") ||
-                      "Location not set"}
-                  </p>
-                  <p>{form.gender || "Gender not set"}</p>
-                  <p>{form.age_group || "Age group not set"}</p>
-                  <p>
-                    {form.height_cm ? `${form.height_cm} cm` : "Height not set"}
-                  </p>
-                  <p>
-                    {form.weight_kg ? `${form.weight_kg} kg` : "Weight not set"}
-                  </p>
-                  <p>{form.dominant_side || "Dominant side not set"}</p>
-                  <p>{form.contact_email || "Contact email not set"}</p>
-                </div>
-
-                <p className="mt-4 text-sm text-white/60">
-                  {form.is_public ? "Public" : "Private"}
-                </p>
-
-                {form.public_slug && (
-                  <Link
-                    href={publicUrl}
-                    className="mt-4 inline-block text-[#D8F200]"
-                  >
-                    View Profile →
-                  </Link>
-                )}
-              </div>
+              <input
+                type="text"
+                value={position}
+                onChange={(e) => setPosition(e.target.value)}
+                placeholder="e.g. Point Guard"
+                className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
+              />
             </div>
           </div>
-        )}
+
+          {/* LOCATION */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                State / Region
+              </label>
+
+              <input
+                type="text"
+                value={stateRegion}
+                onChange={(e) => setStateRegion(e.target.value)}
+                placeholder="e.g. NSW"
+                className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Country
+              </label>
+
+              <input
+                type="text"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="e.g. Australia"
+                className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
+              />
+            </div>
+          </div>
+
+          {/* PUBLIC TOGGLE */}
+          <label className="flex items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+            />
+
+            Make my PLAYR profile public
+          </label>
+
+          {/* SAVE BUTTON */}
+          <button
+            onClick={handleSaveProfile}
+            disabled={loading}
+            className="w-full rounded-xl bg-[#D8F200] px-6 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
+          >
+            {loading ? "Saving..." : "Save Profile"}
+          </button>
+
+          {/* MESSAGE */}
+          {message && (
+            <div
+              className={`rounded-xl p-4 text-sm font-medium ${
+                messageType === "success"
+                  ? "bg-green-500/20 text-green-200"
+                  : messageType === "error"
+                  ? "bg-red-500/20 text-red-200"
+                  : "bg-white/10 text-white"
+              }`}
+            >
+              {message}
+            </div>
+          )}
+        </div>
       </section>
     </main>
   );

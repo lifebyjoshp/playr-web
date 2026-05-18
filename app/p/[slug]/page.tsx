@@ -155,7 +155,7 @@ export default function PublicProfilePage({
 
       if (achievementsRes.data) setAchievements(achievementsRes.data);
       if (highlightsRes.data) setHighlights(highlightsRes.data);
-      if (experienceRes.data) setExperience(experienceRes.data as TeamMembership[]);
+      if (experienceRes.data) setExperience(experienceRes.data as unknown as TeamMembership[]);
 
       setLoading(false);
     };
