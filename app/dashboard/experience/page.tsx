@@ -107,7 +107,7 @@ export default function ExperiencePage() {
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      setMemberships(data as TeamMembership[]);
+      setMemberships(data as unknown as TeamMembership[]);
     }
   };
 
