@@ -184,11 +184,11 @@ export default function PublicProfilePage() {
             </label>
 
             {profilePhotoUrl ? (
-              <img
-                src={profilePhotoUrl}
-                alt="Profile"
-                className="mb-4 h-32 w-32 rounded-2xl object-cover"
-              />
+              <input
+  type="file"
+  accept="image/*"
+  onChange={handleImageUpload}
+/>
             ) : (
               <div className="mb-4 flex h-32 w-32 items-center justify-center rounded-2xl bg-[#081642] text-sm text-white/60">
                 No Photo
