@@ -99,18 +99,31 @@ export default function PublicProfilePage() {
     }
 
     const { data } = supabase.storage
-      .from("profile-photos")
-      .getPublicUrl(filePath);
+  .from("profile-photos")
+  .getPublicUrl(filePath);
 
-    const publicUrl = data.publicUrl;
+const publicUrl = data.publicUrl;
 
-    setProfilePhotoUrl(publicUrl);
+const { error: profileUpdateError } = await supabase
+  .from("profiles")
+  .update({
+    profile_photo_url: publicUrl,
+  })
+  .eq("id", user.id);
 
-    setMessageType("success");
-    setMessage("Profile photo uploaded.");
+if (profileUpdateError) {
+  setMessageType("error");
+  setMessage(`Image uploaded but profile update failed: ${profileUpdateError.message}`);
+  setUploadingImage(false);
+  return;
+}
 
-    setUploadingImage(false);
-  };
+setProfilePhotoUrl(publicUrl);
+
+setMessageType("success");
+setMessage("Profile photo uploaded and saved.");
+
+setUploadingImage(false);
 
   const handleSaveProfile = async () => {
     setLoading(true);
@@ -184,11 +197,11 @@ export default function PublicProfilePage() {
             </label>
 
             {profilePhotoUrl ? (
-              <input
-  type="file"
-  accept="image/*"
-  onChange={handleImageUpload}
-/>
+              <img
+                src={profilePhotoUrl}
+                alt="Profile"
+                className="mb-4 h-32 w-32 rounded-2xl object-cover"
+              />
             ) : (
               <div className="mb-4 flex h-32 w-32 items-center justify-center rounded-2xl bg-[#081642] text-sm text-white/60">
                 No Photo
