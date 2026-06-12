@@ -86,9 +86,18 @@ export default function PublicProfilePage({
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [experience, setExperience] = useState<TeamMembership[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  const [viewerId, setViewerId] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const [followLoading, setFollowLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
 
   useEffect(() => {
     const loadPublicProfile = async () => {
@@ -97,6 +106,10 @@ export default function PublicProfilePage({
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
+      if (user) {
+        setViewerId(user.id);
+      }
 
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
@@ -113,49 +126,72 @@ export default function PublicProfilePage({
         return;
       }
 
+      setProfile(profileData);
+
       if (user && user.id === profileData.id) {
         setIsOwner(true);
       }
 
-      setProfile(profileData);
+      if (user && user.id !== profileData.id) {
+        const [{ data: followData }, { data: savedData }] = await Promise.all([
+          supabase
+            .from("follows")
+            .select("id")
+            .eq("follower_id", user.id)
+            .eq("following_id", profileData.id)
+            .maybeSingle(),
 
-      const [achievementsRes, highlightsRes, experienceRes] = await Promise.all([
-        supabase
-          .from("achievements")
-          .select("*")
-          .eq("profile_id", profileData.id)
-          .order("achievement_date", { ascending: false }),
+          supabase
+            .from("saved_players")
+            .select("id")
+            .eq("saver_id", user.id)
+            .eq("saved_profile_id", profileData.id)
+            .maybeSingle(),
+        ]);
 
-        supabase
-          .from("highlights")
-          .select("*")
-          .eq("profile_id", profileData.id)
-          .order("created_at", { ascending: false }),
+        setIsFollowing(Boolean(followData));
+        setIsSaved(Boolean(savedData));
+      }
 
-        supabase
-          .from("player_team_memberships")
-          .select(
+      const [achievementsRes, highlightsRes, experienceRes] =
+        await Promise.all([
+          supabase
+            .from("achievements")
+            .select("*")
+            .eq("profile_id", profileData.id)
+            .order("achievement_date", { ascending: false }),
+
+          supabase
+            .from("highlights")
+            .select("*")
+            .eq("profile_id", profileData.id)
+            .order("created_at", { ascending: false }),
+
+          supabase
+            .from("player_team_memberships")
+            .select(
+              `
+              id,
+              position,
+              start_date,
+              end_date,
+              is_current,
+              teams (
+                display_name,
+                sport,
+                association_name,
+                competition_name
+              )
             `
-            id,
-            position,
-            start_date,
-            end_date,
-            is_current,
-            teams (
-              display_name,
-              sport,
-              association_name,
-              competition_name
             )
-          `
-          )
-          .eq("profile_id", profileData.id)
-          .order("created_at", { ascending: false }),
-      ]);
+            .eq("profile_id", profileData.id)
+            .order("created_at", { ascending: false }),
+        ]);
 
       if (achievementsRes.data) setAchievements(achievementsRes.data);
       if (highlightsRes.data) setHighlights(highlightsRes.data);
-      if (experienceRes.data) setExperience(experienceRes.data as unknown as TeamMembership[]);
+      if (experienceRes.data)
+        setExperience(experienceRes.data as TeamMembership[]);
 
       setLoading(false);
     };
@@ -172,6 +208,56 @@ export default function PublicProfilePage({
     () => experience.filter((item) => !item.is_current),
     [experience]
   );
+
+  const handleToggleFollow = async () => {
+    if (!viewerId || !profile || isOwner) return;
+
+    setFollowLoading(true);
+
+    if (isFollowing) {
+      const { error } = await supabase
+        .from("follows")
+        .delete()
+        .eq("follower_id", viewerId)
+        .eq("following_id", profile.id);
+
+      if (!error) setIsFollowing(false);
+    } else {
+      const { error } = await supabase.from("follows").insert({
+        follower_id: viewerId,
+        following_id: profile.id,
+      });
+
+      if (!error) setIsFollowing(true);
+    }
+
+    setFollowLoading(false);
+  };
+
+  const handleToggleSave = async () => {
+    if (!viewerId || !profile || isOwner) return;
+
+    setSaveLoading(true);
+
+    if (isSaved) {
+      const { error } = await supabase
+        .from("saved_players")
+        .delete()
+        .eq("saver_id", viewerId)
+        .eq("saved_profile_id", profile.id);
+
+      if (!error) setIsSaved(false);
+    } else {
+      const { error } = await supabase.from("saved_players").insert({
+        saver_id: viewerId,
+        saved_profile_id: profile.id,
+      });
+
+      if (!error) setIsSaved(true);
+    }
+
+    setSaveLoading(false);
+  };
 
   if (loading) {
     return (
@@ -215,15 +301,21 @@ export default function PublicProfilePage({
                     alt={profile.full_name || "Profile"}
                     className="h-28 w-28 rounded-2xl object-cover"
                   />
-                ) : null}
+                ) : (
+                  <div className="flex h-28 w-28 items-center justify-center rounded-2xl bg-[#081642] text-3xl font-bold">
+                    {profile.full_name?.charAt(0) || "P"}
+                  </div>
+                )}
 
                 <div>
                   <p className="text-sm uppercase tracking-[0.25em] text-[#D8F200]">
                     PLAYR Profile
                   </p>
+
                   <h1 className="mt-3 text-4xl font-extrabold md:text-5xl">
                     {profile.full_name || "Unnamed Athlete"}
                   </h1>
+
                   <p className="mt-3 text-lg text-white/75">
                     {profile.headline || "Athlete profile"}
                   </p>
@@ -242,14 +334,49 @@ export default function PublicProfilePage({
                 </div>
               </div>
 
-              {isOwner && (
-                <Link
-                  href="/dashboard/public-profile"
-                  className="rounded-xl bg-[#D8F200] px-5 py-3 font-bold text-[#0B1F5C]"
-                >
-                  Edit Profile
-                </Link>
-              )}
+              <div className="flex flex-wrap gap-3">
+                {isOwner ? (
+                  <Link
+                    href="/dashboard/public-profile"
+                    className="rounded-xl bg-[#D8F200] px-5 py-3 font-bold text-[#0B1F5C]"
+                  >
+                    Edit Profile
+                  </Link>
+                ) : viewerId ? (
+                  <>
+                    <button
+                      onClick={handleToggleFollow}
+                      disabled={followLoading}
+                      className="rounded-xl bg-[#D8F200] px-5 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
+                    >
+                      {followLoading
+                        ? "Updating..."
+                        : isFollowing
+                        ? "Following"
+                        : "Follow PLAYR"}
+                    </button>
+
+                    <button
+                      onClick={handleToggleSave}
+                      disabled={saveLoading}
+                      className="rounded-xl border border-white/15 bg-white/10 px-5 py-3 font-semibold text-white transition hover:bg-white/15 disabled:opacity-60"
+                    >
+                      {saveLoading
+                        ? "Updating..."
+                        : isSaved
+                        ? "In Watchlist"
+                        : "Add to Watchlist"}
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href="/login?message=login-required"
+                    className="rounded-xl bg-[#D8F200] px-5 py-3 font-bold text-[#0B1F5C]"
+                  >
+                    Log in to Follow
+                  </Link>
+                )}
+              </div>
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-4">
@@ -268,7 +395,9 @@ export default function PublicProfilePage({
               </div>
 
               <div className="rounded-2xl bg-[#081642] p-4">
-                <div className="text-xs uppercase text-white/60">Current Team</div>
+                <div className="text-xs uppercase text-white/60">
+                  Current Team
+                </div>
                 <div className="mt-2 text-base font-bold">
                   {currentExperience?.teams?.display_name || "Not set"}
                 </div>
@@ -292,7 +421,9 @@ export default function PublicProfilePage({
               </div>
 
               <div className="rounded-2xl bg-[#081642] p-4">
-                <div className="text-xs uppercase text-white/60">Age Group</div>
+                <div className="text-xs uppercase text-white/60">
+                  Age Group
+                </div>
                 <div className="mt-2 font-bold">
                   {profile.age_group || "Not set"}
                 </div>
@@ -306,7 +437,9 @@ export default function PublicProfilePage({
               </div>
 
               <div className="rounded-2xl bg-[#081642] p-4">
-                <div className="text-xs uppercase text-white/60">Dominant Side</div>
+                <div className="text-xs uppercase text-white/60">
+                  Dominant Side
+                </div>
                 <div className="mt-2 font-bold">
                   {profile.dominant_side || "Not set"}
                 </div>
@@ -334,16 +467,19 @@ export default function PublicProfilePage({
                   <h3 className="text-xl font-bold">
                     {currentExperience.teams.display_name}
                   </h3>
+
                   <p className="mt-1 text-sm text-white/70">
                     {currentExperience.teams.sport} •{" "}
                     {currentExperience.position || "Position not set"}
                   </p>
+
                   <p className="mt-2 text-sm text-white/60">
                     {currentExperience.teams.association_name
                       ? `${currentExperience.teams.association_name} • `
                       : ""}
                     {currentExperience.teams.competition_name}
                   </p>
+
                   <p className="mt-2 text-sm text-white/60">
                     {currentExperience.start_date || "No start date"} – Current
                   </p>
@@ -356,7 +492,9 @@ export default function PublicProfilePage({
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur">
-              <h2 className="mb-6 text-2xl font-bold">Previous Experience</h2>
+              <h2 className="mb-6 text-2xl font-bold">
+                Previous Experience
+              </h2>
 
               <div className="space-y-4">
                 {previousExperience.length === 0 && (
@@ -370,15 +508,18 @@ export default function PublicProfilePage({
                     <h3 className="text-xl font-bold">
                       {item.teams.display_name}
                     </h3>
+
                     <p className="mt-1 text-sm text-white/70">
                       {item.teams.sport} • {item.position || "Position not set"}
                     </p>
+
                     <p className="mt-2 text-sm text-white/60">
                       {item.teams.association_name
                         ? `${item.teams.association_name} • `
                         : ""}
                       {item.teams.competition_name}
                     </p>
+
                     <p className="mt-2 text-sm text-white/60">
                       {item.start_date || "No start date"} –{" "}
                       {item.end_date || "No end date"}
@@ -404,6 +545,7 @@ export default function PublicProfilePage({
                     className="rounded-2xl bg-[#081642] p-5"
                   >
                     <h3 className="text-xl font-bold">{achievement.title}</h3>
+
                     <p className="mt-1 text-sm text-white/70">
                       {achievement.achievement_type || "Achievement"}
                     </p>
