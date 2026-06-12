@@ -125,6 +125,8 @@ setMessage("Profile photo uploaded and saved.");
 
 setUploadingImage(false);
 
+  };
+
   const handleSaveProfile = async () => {
     setLoading(true);
     setMessage("Saving profile...");
