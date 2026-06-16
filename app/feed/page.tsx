@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import Navbar from "../../components/Navbar";
 import { supabase } from "../../lib/supabase";
+import AppShell from "../../components/AppShell";
 
 type Profile = {
   id: string;
@@ -327,8 +327,7 @@ export default function FeedPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0B1F5C] text-white">
-      <Navbar />
+    <AppShell>
 
       <section className="mx-auto max-w-[1280px] px-4 py-8 md:px-6">
         <div className="mb-8">
@@ -758,6 +757,6 @@ export default function FeedPage() {
           </aside>
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }
