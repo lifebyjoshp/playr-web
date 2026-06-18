@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Navbar from "../../../components/Navbar";
 import { supabase } from "../../../lib/supabase";
+import AppShell from "../../../components/AppShell";
 
 export default function PublicProfilePage() {
   const [fullName, setFullName] = useState("");
@@ -172,8 +172,7 @@ setUploadingImage(false);
   };
 
   return (
-    <main className="min-h-screen bg-[#0B1F5C] text-white">
-      <Navbar />
+    <AppShell>
 
       <section className="mx-auto max-w-5xl px-6 py-16 md:px-10">
         <div className="mb-10">
@@ -388,6 +387,6 @@ setUploadingImage(false);
           )}
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }

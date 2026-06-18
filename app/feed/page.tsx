@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import AppShell from "../../components/AppShell";
 
@@ -216,7 +216,7 @@ export default function FeedPage() {
     return null;
   };
 
-  const feedItems = useMemo(() => {
+const feedItems = (() => {
     const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
 
     const joinedItems: FeedItem[] = profiles.map((profile) => ({
@@ -281,15 +281,7 @@ export default function FeedPage() {
 
         return bTime - aTime;
       });
-  }, [
-    profiles,
-    achievements,
-    highlights,
-    sportFilter,
-    locationFilter,
-    followedIds,
-    watchlistIds,
-  ]);
+    })();
 
   const handleSavePreferences = async () => {
     if (!viewerProfile) {
