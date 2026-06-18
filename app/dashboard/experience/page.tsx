@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Navbar from "../../../components/Navbar";
 import { supabase } from "../../../lib/supabase";
+import AppShell from "../../../components/AppShell";
 
 type TeamMembership = {
   id: string;
@@ -313,8 +313,7 @@ export default function ExperiencePage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0B1F5C] text-white">
-      <Navbar />
+    <AppShell>
 
       <section className="mx-auto max-w-7xl px-6 py-16 md:px-10">
         <div className="mb-10">
@@ -595,6 +594,6 @@ export default function ExperiencePage() {
           </div>
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }
