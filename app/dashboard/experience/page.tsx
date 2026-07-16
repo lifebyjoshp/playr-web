@@ -324,8 +324,7 @@ export default function ExperiencePage() {
             Add playing experience
           </h1>
           <p className="mt-3 max-w-3xl text-white/75">
-            Add current and past teams, competitions, and playing history like a
-            sports version of LinkedIn experience.
+            Add current and past teams, competitions, and playing history.
           </p>
         </div>
 

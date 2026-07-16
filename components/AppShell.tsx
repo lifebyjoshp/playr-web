@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
+import { BRAND } from "../lib/branding";
 
 const navItems = [
   { label: "Home", href: "/feed" },
   { label: "Explore", href: "/explore" },
-  { label: "Watchlist", href: "/watchlist" },
+  { label: BRAND.watchlistLabel, href: "/watchlist" },
   { label: "Dashboard", href: "/dashboard" },
+  { label: "Teams", href: "/dashboard/teams" },
   { label: "Edit Profile", href: "/dashboard/public-profile" },
   { label: "Experience", href: "/dashboard/experience" },
   { label: "Achievements", href: "/dashboard/achievements" },
@@ -26,7 +28,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <aside className="hidden lg:block">
           <div className="sticky top-24 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
             <p className="mb-4 px-3 text-xs font-semibold uppercase tracking-[0.25em] text-[#D8F200]">
-              PLAYR Menu
+              {BRAND.name} Menu
             </p>
 
             <nav className="space-y-2">

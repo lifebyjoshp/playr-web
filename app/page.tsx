@@ -1,6 +1,7 @@
 import AthleteCard from "../components/AthleteCard";
 import Navbar from "../components/Navbar";
 import { athletes } from "../data/athletes";
+import { BRAND } from "../lib/branding";
 
 export default function Home() {
   return (
@@ -136,7 +137,7 @@ export default function Home() {
               Build Your Profile
             </h3>
             <p className="text-slate-600">
-              Create a standout athlete profile with stats, achievements, and
+              Create a standout athlete profile with stats, progress achievements, and
               highlight content.
             </p>
           </div>
@@ -164,7 +165,7 @@ export default function Home() {
           Ready to get in the game?
         </h2>
         <p className="mx-auto mb-8 max-w-2xl text-lg text-white/75">
-          Create your PLAYR profile today and start building your athlete
+          Create your {BRAND.profileLabel} profile today and start building your athlete
           presence.
         </p>
         <button className="rounded-xl bg-[#D8F200] px-8 py-4 text-lg font-bold text-[#0B1F5C] shadow-lg transition hover:scale-[1.02]">
@@ -172,7 +173,7 @@ export default function Home() {
   href="/signup"
   className="rounded-xl bg-[#D8F200] px-8 py-4 text-lg font-bold text-[#0B1F5C] shadow-lg transition hover:scale-[1.02]"
 >
-  Join PLAYR Now
+  Get On The {BRAND.name} Now
 </a>
         </button>
       </section>

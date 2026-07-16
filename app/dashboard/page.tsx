@@ -20,7 +20,7 @@ const actionCards = [
   {
   title: "Open Feed",
   description:
-    "See new PLAYRs, recent achievements, and fresh highlights in your network.",
+    "See new Athletes, recent achievements, and fresh highlights in your network.",
   href: "/feed",
 },
 {
@@ -131,7 +131,7 @@ export default function DashboardPage() {
             Dashboard
           </p>
           <h1 className="text-4xl font-extrabold md:text-5xl">
-            Build your PLAYR profile
+            Build your RADR profile
           </h1>
           <p className="mt-4 max-w-3xl text-white/75">
             Start with the basics, then keep building your athlete presence over

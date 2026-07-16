@@ -13,13 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "PLAYR",
-  description: "Where athletes get seen.",
+  title: "RADR",
+  description: "Get seen. Stay on the radar.",
   icons: {
     icon: [
       { url: "/favicon.ico" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icon.png", type: "image/png" },
     ],
     apple: "/apple-touch-icon.png",
   },

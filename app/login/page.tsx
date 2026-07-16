@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Navbar from "../../components/Navbar";
 import { supabase } from "../../lib/supabase";
+import { BRAND } from "../../lib/branding";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -54,7 +55,7 @@ export default function LoginPage() {
               Welcome Back
             </p>
             <h1 className="mb-4 text-4xl font-extrabold md:text-5xl">
-              Log into PLAYR
+              Log into {BRAND.name}
             </h1>
             <p className="max-w-xl text-white/75">
               Access your athlete profile, update your highlights, and continue

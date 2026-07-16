@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
 import AppShell from "../../components/AppShell";
+import { BRAND } from "../../lib/branding";
+import { supabase } from "../../lib/supabase";
 
 type Profile = {
   id: string;
@@ -327,11 +328,11 @@ const feedItems = (() => {
             Home
           </p>
           <h1 className="text-4xl font-extrabold md:text-5xl">
-            Your PLAYR feed
+            Your {BRAND.feedLabel}
           </h1>
           <p className="mt-3 max-w-3xl text-white/75">
-            Watchlist and followed PLAYRs appear first, followed by broader
-            activity from the PLAYR network.
+            Watchlist and followed Athletes appear first, followed by broader
+            activity from the {BRAND.networkLabel}.
           </p>
         </div>
 
@@ -343,7 +344,7 @@ const feedItems = (() => {
                 <div>
                   <h2 className="text-lg font-bold">For You</h2>
                   <p className="mt-1 text-sm text-white/70">
-                    Watchlist first, followed PLAYRs second, then general
+                    Watchlist first, followed Athletes second, then general
                     activity.
                   </p>
                 </div>
@@ -396,7 +397,7 @@ const feedItems = (() => {
                               href={`/p/${item.profile.public_slug}`}
                               className="font-bold hover:underline"
                             >
-                              {item.profile.full_name || "Unnamed PLAYR"}
+                              {item.profile.full_name || BRAND.unnamedAthleteLabel}
                             </Link>
 
                             <p className="text-sm text-white/65">
@@ -425,7 +426,7 @@ const feedItems = (() => {
                       {item.type === "joined" && (
                         <div>
                           <p className="text-white/80">
-                            Joined PLAYR and is now discoverable to the
+                            Joined {BRAND.name} and is now discoverable to the
                             community.
                           </p>
 
@@ -636,8 +637,8 @@ const feedItems = (() => {
             <div className="rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur">
               <h2 className="mb-4 text-lg font-bold">Feed Priority</h2>
               <div className="space-y-2 text-sm text-white/75">
-                <p>1. Watchlist PLAYRs</p>
-                <p>2. Followed PLAYRs</p>
+                <p>1. On Your RADR</p>
+                <p>2. Followed Athletes</p>
                 <p>3. General activity</p>
               </div>
             </div>

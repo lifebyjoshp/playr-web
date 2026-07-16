@@ -48,7 +48,7 @@ export default function Navbar() {
           href={user ? "/feed" : "/"}
           className="text-xl font-extrabold tracking-wide"
         >
-          PLAYR
+          RADR
         </Link>
 
         {/* NAV LINKS */}

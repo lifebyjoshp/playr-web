@@ -74,7 +74,7 @@ export default function WatchlistPage() {
             Your Watchlist
           </h1>
           <p className="mt-3 text-white/75">
-            PLAYRs you are tracking and monitoring.
+            Athletes you are tracking and monitoring.
           </p>
         </div>
 
@@ -82,7 +82,7 @@ export default function WatchlistPage() {
           <p className="text-white/70">Loading...</p>
         ) : profiles.length === 0 ? (
           <p className="text-white/70">
-            You haven’t added any PLAYRs yet.
+            You haven’t added any Athletes yet.
           </p>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
