@@ -1,9 +1,35 @@
 "use client";
 
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import AppShell from "../../../components/AppShell";
-import { BRAND } from "../../../lib/branding";
-import { supabase } from "../../../lib/supabase";
+import AppShell from "../../../../../components/AppShell";
+import { supabase } from "../../../../../lib/supabase";
+
+type AthleteProfile = {
+  id: string;
+  full_name: string | null;
+  preferred_name: string | null;
+  headline: string | null;
+  bio: string | null;
+  public_slug: string | null;
+  is_public: boolean | null;
+  primary_sport: string | null;
+  position: string | null;
+  state: string | null;
+  country: string | null;
+  school_name: string | null;
+  eligible_countries: string[];
+  languages: string[];
+  profile_photo_url: string | null;
+};
+
+type GuardianLink = {
+  id: string;
+  athlete_profile_id: string;
+  guardian_profile_id: string;
+  status: string;
+  can_edit_profile: boolean;
+};
 
 function cleanList(values: string[]) {
   return Array.from(
@@ -11,13 +37,22 @@ function cleanList(values: string[]) {
   );
 }
 
-export default function PublicProfilePage() {
+export default function FamilyManagedAthletePage() {
+  const params = useParams<{ athleteId: string }>();
+  const athleteId = params.athleteId;
+
+  const [guardianLink, setGuardianLink] =
+    useState<GuardianLink | null>(null);
+
+  const [profile, setProfile] =
+    useState<AthleteProfile | null>(null);
+
   const [fullName, setFullName] = useState("");
   const [preferredName, setPreferredName] = useState("");
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
   const [publicSlug, setPublicSlug] = useState("");
-  const [isPublic, setIsPublic] = useState(true);
+  const [isPublic, setIsPublic] = useState(false);
 
   const [primarySport, setPrimarySport] = useState("");
   const [position, setPosition] = useState("");
@@ -25,16 +60,19 @@ export default function PublicProfilePage() {
   const [country, setCountry] = useState("");
   const [schoolName, setSchoolName] = useState("");
 
-  const [eligibleCountries, setEligibleCountries] = useState<string[]>([]);
-  const [newEligibleCountry, setNewEligibleCountry] = useState("");
+  const [eligibleCountries, setEligibleCountries] = useState<
+    string[]
+  >([]);
 
   const [languages, setLanguages] = useState<string[]>([]);
+
+  const [newEligibleCountry, setNewEligibleCountry] =
+    useState("");
+
   const [newLanguage, setNewLanguage] = useState("");
 
-  const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
-
-  const [loading, setLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<
@@ -42,116 +80,138 @@ export default function PublicProfilePage() {
   >("info");
 
   useEffect(() => {
-    const loadProfile = async () => {
+    const loadAthlete = async () => {
+      setLoading(true);
+      setMessage("");
+
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser();
 
-      if (!user) return;
+      if (userError || !user) {
+        setMessageType("error");
+        setMessage("You must be logged in.");
+        setLoading(false);
+        return;
+      }
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+      const { data: linkData, error: linkError } =
+        await supabase
+          .from("guardian_links")
+          .select(
+            `
+            id,
+            athlete_profile_id,
+            guardian_profile_id,
+            status,
+            can_edit_profile
+          `
+          )
+          .eq("athlete_profile_id", athleteId)
+          .eq("guardian_profile_id", user.id)
+          .eq("status", "active")
+          .maybeSingle();
 
-      if (error || !data) return;
+      if (linkError || !linkData) {
+        setMessageType("error");
+        setMessage(
+          "You do not have active family access for this athlete."
+        );
+        setLoading(false);
+        return;
+      }
 
-      setFullName(data.full_name || "");
-      setPreferredName(data.preferred_name || "");
-      setHeadline(data.headline || "");
-      setBio(data.bio || "");
-      setPublicSlug(data.public_slug || "");
-      setIsPublic(data.is_public ?? true);
+      const loadedLink = linkData as GuardianLink;
 
-      setPrimarySport(data.primary_sport || "");
-      setPosition(data.position || "");
-      setStateRegion(data.state || "");
-      setCountry(data.country || "");
-      setSchoolName(data.school_name || "");
+      if (!loadedLink.can_edit_profile) {
+        setGuardianLink(loadedLink);
+        setMessageType("error");
+        setMessage(
+          "Your family permissions do not allow athlete editing."
+        );
+        setLoading(false);
+        return;
+      }
+
+      setGuardianLink(loadedLink);
+
+      const { data: profileData, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select(
+            `
+            id,
+            full_name,
+            preferred_name,
+            headline,
+            bio,
+            public_slug,
+            is_public,
+            primary_sport,
+            position,
+            state,
+            country,
+            school_name,
+            eligible_countries,
+            languages,
+            profile_photo_url
+          `
+          )
+          .eq("id", athleteId)
+          .single();
+
+      if (profileError || !profileData) {
+        setMessageType("error");
+        setMessage(
+          `Unable to load athlete profile: ${
+            profileError?.message || "Profile not found."
+          }`
+        );
+        setLoading(false);
+        return;
+      }
+
+      const loadedProfile: AthleteProfile = {
+        ...profileData,
+        eligible_countries: Array.isArray(
+          profileData.eligible_countries
+        )
+          ? profileData.eligible_countries
+          : [],
+        languages: Array.isArray(profileData.languages)
+          ? profileData.languages
+          : [],
+      };
+
+      setProfile(loadedProfile);
+
+      setFullName(loadedProfile.full_name || "");
+      setPreferredName(loadedProfile.preferred_name || "");
+      setHeadline(loadedProfile.headline || "");
+      setBio(loadedProfile.bio || "");
+      setPublicSlug(loadedProfile.public_slug || "");
+      setIsPublic(loadedProfile.is_public ?? false);
+
+      setPrimarySport(loadedProfile.primary_sport || "");
+      setPosition(loadedProfile.position || "");
+      setStateRegion(loadedProfile.state || "");
+      setCountry(loadedProfile.country || "");
+      setSchoolName(loadedProfile.school_name || "");
 
       setEligibleCountries(
-        Array.isArray(data.eligible_countries)
-          ? cleanList(data.eligible_countries)
-          : []
+        cleanList(loadedProfile.eligible_countries)
       );
 
-      setLanguages(
-        Array.isArray(data.languages)
-          ? cleanList(data.languages)
-          : []
-      );
+      setLanguages(cleanList(loadedProfile.languages));
 
-      setProfilePhotoUrl(data.profile_photo_url || "");
+      setLoading(false);
     };
 
-    void loadProfile();
-  }, []);
-
-  const handleImageUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-
-    if (!file) return;
-
-    setUploadingImage(true);
-    setMessage("Uploading image...");
-    setMessageType("info");
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setMessageType("error");
-      setMessage("You must be logged in.");
-      setUploadingImage(false);
-      return;
+    if (athleteId) {
+      void loadAthlete();
     }
-
-    const fileExt = file.name.split(".").pop() || "jpg";
-    const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-    const filePath = `profiles/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("profile-photos")
-      .upload(filePath, file);
-
-    if (uploadError) {
-      setMessageType("error");
-      setMessage(`Upload failed: ${uploadError.message}`);
-      setUploadingImage(false);
-      return;
-    }
-
-    const { data } = supabase.storage
-      .from("profile-photos")
-      .getPublicUrl(filePath);
-
-    const publicUrl = data.publicUrl;
-
-    const { error: profileUpdateError } = await supabase
-      .from("profiles")
-      .update({
-        profile_photo_url: publicUrl,
-      })
-      .eq("id", user.id);
-
-    if (profileUpdateError) {
-      setMessageType("error");
-      setMessage(
-        `Image uploaded but profile update failed: ${profileUpdateError.message}`
-      );
-      setUploadingImage(false);
-      return;
-    }
-
-    setProfilePhotoUrl(publicUrl);
-    setMessageType("success");
-    setMessage("Profile photo uploaded and saved.");
-    setUploadingImage(false);
-  };
+  }, [athleteId]);
 
   const addEligibleCountry = () => {
     const value = newEligibleCountry.trim();
@@ -165,9 +225,13 @@ export default function PublicProfilePage() {
     setNewEligibleCountry("");
   };
 
-  const removeEligibleCountry = (countryToRemove: string) => {
+  const removeEligibleCountry = (
+    countryToRemove: string
+  ) => {
     setEligibleCountries((current) =>
-      current.filter((item) => item !== countryToRemove)
+      current.filter(
+        (item) => item !== countryToRemove
+      )
     );
   };
 
@@ -183,33 +247,32 @@ export default function PublicProfilePage() {
     setNewLanguage("");
   };
 
-  const removeLanguage = (languageToRemove: string) => {
+  const removeLanguage = (
+    languageToRemove: string
+  ) => {
     setLanguages((current) =>
-      current.filter((item) => item !== languageToRemove)
+      current.filter(
+        (item) => item !== languageToRemove
+      )
     );
   };
 
-  const handleSaveProfile = async () => {
-    setLoading(true);
-    setMessage("Saving profile...");
-    setMessageType("info");
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
+  const handleSave = async () => {
+    if (!guardianLink?.can_edit_profile) {
       setMessageType("error");
-      setMessage("You must be logged in.");
-      setLoading(false);
+      setMessage(
+        "You do not have permission to edit this athlete."
+      );
       return;
     }
 
+    setSaving(true);
+    setMessageType("info");
+    setMessage("Saving athlete...");
+
     const { error } = await supabase
       .from("profiles")
-      .upsert({
-        id: user.id,
-        email: user.email,
+      .update({
         full_name: fullName,
         preferred_name: preferredName || null,
         headline,
@@ -221,70 +284,113 @@ export default function PublicProfilePage() {
         state: stateRegion,
         country,
         school_name: schoolName || null,
-        eligible_countries: cleanList(eligibleCountries),
+        eligible_countries:
+          cleanList(eligibleCountries),
         languages: cleanList(languages),
-        profile_photo_url: profilePhotoUrl,
-      });
+      })
+      .eq("id", athleteId);
 
     if (error) {
       setMessageType("error");
-      setMessage(`Error saving profile: ${error.message}`);
-      setLoading(false);
+      setMessage(
+        `Unable to save athlete: ${error.message}`
+      );
+      setSaving(false);
       return;
     }
 
     setMessageType("success");
-    setMessage("Profile updated successfully.");
-    setLoading(false);
+    setMessage("Athlete updated successfully.");
+    setSaving(false);
   };
+
+  if (loading) {
+    return (
+      <AppShell>
+        <section className="mx-auto max-w-5xl px-6 py-12">
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-8">
+            Loading athlete...
+          </div>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (!profile || !guardianLink?.can_edit_profile) {
+    return (
+      <AppShell>
+        <section className="mx-auto max-w-5xl px-6 py-12">
+          <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-8 text-red-100">
+            <h1 className="text-2xl font-bold">
+              Athlete access unavailable
+            </h1>
+
+            <p className="mt-3">
+              {message ||
+                "You do not have permission to edit this athlete."}
+            </p>
+          </div>
+        </section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
-      <section className="mx-auto max-w-5xl px-6 py-16 md:px-10">
+      <section className="mx-auto max-w-5xl px-6 py-12">
         <div className="mb-10">
-          <p className="mb-3 text-sm uppercase tracking-[0.25em] text-[#D8F200]">
-            Public Profile
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#D8F200]">
+            Family
           </p>
 
-          <h1 className="text-4xl font-extrabold md:text-5xl">
-            Edit your {BRAND.name} profile
+          <h1 className="mt-3 text-4xl font-extrabold md:text-5xl">
+            Manage Athlete
           </h1>
 
-          <p className="mt-3 text-white/75">
-            Manage your public athlete identity and profile information.
+          <p className="mt-3 text-white/70">
+            You are editing this athlete using approved family access.
           </p>
         </div>
 
-        <div className="space-y-6 rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur">
-          <div>
-            <label className="mb-3 block text-sm font-medium">
-              Profile Photo
-            </label>
+        {message && (
+          <div
+            className={`mb-6 rounded-2xl p-4 text-sm font-medium ${
+              messageType === "success"
+                ? "bg-green-500/20 text-green-100"
+                : messageType === "error"
+                  ? "bg-red-500/20 text-red-100"
+                  : "bg-white/10 text-white/75"
+            }`}
+          >
+            {message}
+          </div>
+        )}
 
-            {profilePhotoUrl ? (
+        <div className="space-y-6 rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur">
+          <div className="flex items-center gap-4 rounded-2xl bg-[#081642] p-5">
+            {profile.profile_photo_url ? (
               <img
-                src={profilePhotoUrl}
-                alt="Profile"
-                className="mb-4 h-32 w-32 rounded-2xl object-cover"
+                src={profile.profile_photo_url}
+                alt={profile.full_name || "Athlete"}
+                className="h-20 w-20 rounded-xl object-cover"
               />
             ) : (
-              <div className="mb-4 flex h-32 w-32 items-center justify-center rounded-2xl bg-[#081642] text-sm text-white/60">
-                No Photo
+              <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-white/10 text-2xl font-bold">
+                {(preferredName || fullName || "A").charAt(0)}
               </div>
             )}
 
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="block w-full text-sm text-white"
-            />
-
-            {uploadingImage && (
-              <p className="mt-2 text-sm text-white/70">
-                Uploading image...
+            <div>
+              <p className="text-xl font-bold">
+                {preferredName ||
+                  fullName ||
+                  "Unnamed Athlete"}
               </p>
-            )}
+
+              <p className="mt-1 text-sm text-white/55">
+                Family-managed athlete
+              </p>
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -299,7 +405,6 @@ export default function PublicProfilePage() {
                 onChange={(event) =>
                   setFullName(event.target.value)
                 }
-                placeholder="Enter your full name"
                 className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
               />
             </div>
@@ -315,7 +420,6 @@ export default function PublicProfilePage() {
                 onChange={(event) =>
                   setPreferredName(event.target.value)
                 }
-                placeholder="e.g. Josh"
                 className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
               />
             </div>
@@ -332,7 +436,6 @@ export default function PublicProfilePage() {
               onChange={(event) =>
                 setHeadline(event.target.value)
               }
-              placeholder="e.g. Basketball Guard | Newcastle Falcons"
               className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
             />
           </div>
@@ -347,7 +450,6 @@ export default function PublicProfilePage() {
               onChange={(event) =>
                 setBio(event.target.value)
               }
-              placeholder="Tell people about yourself..."
               rows={5}
               className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
             />
@@ -364,16 +466,11 @@ export default function PublicProfilePage() {
               onChange={(event) =>
                 setPublicSlug(event.target.value)
               }
-              placeholder="e.g. josh-phillips"
               className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
             />
 
-            <p className="mt-2 text-sm text-white/60">
-              Your public profile will appear at:
-            </p>
-
-            <p className="mt-1 text-sm text-[#D8F200]">
-              /p/{publicSlug || "your-name"}
+            <p className="mt-2 text-sm text-[#D8F200]">
+              /p/{publicSlug || "athlete-name"}
             </p>
           </div>
 
@@ -389,7 +486,6 @@ export default function PublicProfilePage() {
                 onChange={(event) =>
                   setPrimarySport(event.target.value)
                 }
-                placeholder="e.g. Basketball"
                 className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
               />
             </div>
@@ -405,7 +501,6 @@ export default function PublicProfilePage() {
                 onChange={(event) =>
                   setPosition(event.target.value)
                 }
-                placeholder="e.g. Point Guard"
                 className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
               />
             </div>
@@ -423,7 +518,6 @@ export default function PublicProfilePage() {
                 onChange={(event) =>
                   setStateRegion(event.target.value)
                 }
-                placeholder="e.g. NSW"
                 className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
               />
             </div>
@@ -439,7 +533,6 @@ export default function PublicProfilePage() {
                 onChange={(event) =>
                   setCountry(event.target.value)
                 }
-                placeholder="e.g. Australia"
                 className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
               />
             </div>
@@ -456,7 +549,6 @@ export default function PublicProfilePage() {
               onChange={(event) =>
                 setSchoolName(event.target.value)
               }
-              placeholder="e.g. Newcastle High School"
               className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
             />
           </div>
@@ -466,11 +558,6 @@ export default function PublicProfilePage() {
               Nationality / Eligibility
             </label>
 
-            <p className="mt-1 text-xs text-white/55">
-              Optional. Add countries you are nationally eligible to
-              represent.
-            </p>
-
             <div className="mt-4 flex gap-2">
               <input
                 type="text"
@@ -478,12 +565,6 @@ export default function PublicProfilePage() {
                 onChange={(event) =>
                   setNewEligibleCountry(event.target.value)
                 }
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    addEligibleCountry();
-                  }
-                }}
                 placeholder="e.g. Australia"
                 className="min-w-0 flex-1 rounded-xl bg-[#0B1F5C] px-4 py-3 outline-none"
               />
@@ -506,7 +587,7 @@ export default function PublicProfilePage() {
                     onClick={() =>
                       removeEligibleCountry(item)
                     }
-                    className="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold hover:bg-white/15"
+                    className="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold"
                   >
                     {item} ×
                   </button>
@@ -520,10 +601,6 @@ export default function PublicProfilePage() {
               Languages Spoken
             </label>
 
-            <p className="mt-1 text-xs text-white/55">
-              Optional. Add languages you can communicate in.
-            </p>
-
             <div className="mt-4 flex gap-2">
               <input
                 type="text"
@@ -531,12 +608,6 @@ export default function PublicProfilePage() {
                 onChange={(event) =>
                   setNewLanguage(event.target.value)
                 }
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    addLanguage();
-                  }
-                }}
                 placeholder="e.g. English"
                 className="min-w-0 flex-1 rounded-xl bg-[#0B1F5C] px-4 py-3 outline-none"
               />
@@ -559,7 +630,7 @@ export default function PublicProfilePage() {
                     onClick={() =>
                       removeLanguage(item)
                     }
-                    className="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold hover:bg-white/15"
+                    className="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold"
                   >
                     {item} ×
                   </button>
@@ -577,31 +648,21 @@ export default function PublicProfilePage() {
               }
             />
 
-            Make my {BRAND.name} profile public
+            Make athlete public
           </label>
 
           <button
             type="button"
-            onClick={handleSaveProfile}
-            disabled={loading}
+            onClick={() =>
+              void handleSave()
+            }
+            disabled={saving}
             className="w-full rounded-xl bg-[#D8F200] px-6 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
           >
-            {loading ? "Saving..." : "Save Profile"}
+            {saving
+              ? "Saving..."
+              : "Save Athlete"}
           </button>
-
-          {message && (
-            <div
-              className={`rounded-xl p-4 text-sm font-medium ${
-                messageType === "success"
-                  ? "bg-green-500/20 text-green-200"
-                  : messageType === "error"
-                    ? "bg-red-500/20 text-red-200"
-                    : "bg-white/10 text-white"
-              }`}
-            >
-              {message}
-            </div>
-          )}
         </div>
       </section>
     </AppShell>

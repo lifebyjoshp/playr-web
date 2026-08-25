@@ -244,7 +244,7 @@ export default function ExplorePage() {
             Explore
           </p>
           <h1 className="text-4xl font-extrabold md:text-5xl">
-            Discover PLAYRs
+            Discover Athletes
           </h1>
           <p className="mt-3 max-w-3xl text-white/75">
             Browse public athlete profiles and discover talent by sport,
