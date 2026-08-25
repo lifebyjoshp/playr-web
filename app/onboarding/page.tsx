@@ -1108,19 +1108,19 @@ export default function OnboardingPage() {
               </div>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                {profile.public_slug && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      router.push(
-                        `/p/${profile.public_slug}`
-                      )
-                    }
-                    className="rounded-xl border border-white/15 bg-white/10 px-6 py-4 font-bold transition hover:bg-white/15"
-                  >
-                    View My RADR
-                  </button>
-                )}
+                {profile?.public_slug && (
+  <button
+    type="button"
+    onClick={() =>
+      router.push(
+        `/p/${profile.public_slug}`
+      )
+    }
+    className="rounded-xl border border-white/15 bg-white/10 px-6 py-4 font-bold transition hover:bg-white/15"
+  >
+    View My RADR
+  </button>
+)}
 
                 <button
                   type="button"
