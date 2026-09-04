@@ -751,82 +751,120 @@ export default function DashboardPage() {
             </section>
 
             <section>
-              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
-                Continue Building
-              </p>
+  <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
+    Continue Building
+  </p>
 
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <Link
-                  href="/dashboard/development"
-                  className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
-                >
-                  <p className="text-lg font-bold">
-                    Update AD
-                  </p>
+  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <Link
+      href="/dashboard/development"
+      className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
+    >
+      <p className="text-lg font-bold">
+        Update AD
+      </p>
 
-                  <p className="mt-2 text-sm text-white/55">
-                    Track your development.
-                  </p>
+      <p className="mt-2 text-sm text-white/55">
+        Track your development.
+      </p>
 
-                  <p className="mt-5 text-sm font-semibold text-[#D8F200]">
-                    Open →
-                  </p>
-                </Link>
+      <p className="mt-5 text-sm font-semibold text-[#D8F200]">
+        Open →
+      </p>
+    </Link>
 
-                <Link
-                  href="/dashboard/achievements"
-                  className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
-                >
-                  <p className="text-lg font-bold">
-                    Achievement
-                  </p>
+    <Link
+      href="/dashboard/achievements"
+      className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
+    >
+      <p className="text-lg font-bold">
+        Achievement
+      </p>
 
-                  <p className="mt-2 text-sm text-white/55">
-                    Add a sporting milestone.
-                  </p>
+      <p className="mt-2 text-sm text-white/55">
+        Add a sporting milestone.
+      </p>
 
-                  <p className="mt-5 text-sm font-semibold text-[#D8F200]">
-                    Open →
-                  </p>
-                </Link>
+      <p className="mt-5 text-sm font-semibold text-[#D8F200]">
+        Open →
+      </p>
+    </Link>
 
-                <Link
-                  href="/dashboard/highlights"
-                  className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
-                >
-                  <p className="text-lg font-bold">
-                    Highlight
-                  </p>
+    <Link
+      href="/dashboard/highlights"
+      className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
+    >
+      <p className="text-lg font-bold">
+        Highlight
+      </p>
 
-                  <p className="mt-2 text-sm text-white/55">
-                    Add your latest footage.
-                  </p>
+      <p className="mt-2 text-sm text-white/55">
+        Add your latest footage.
+      </p>
 
-                  <p className="mt-5 text-sm font-semibold text-[#D8F200]">
-                    Open →
-                  </p>
-                </Link>
+      <p className="mt-5 text-sm font-semibold text-[#D8F200]">
+        Open →
+      </p>
+    </Link>
 
-                <Link
-                  href="/dashboard/teams"
-                  className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
-                >
-                  <p className="text-lg font-bold">
-                    Teams
-                  </p>
+    <Link
+      href="/dashboard/teams"
+      className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
+    >
+      <p className="text-lg font-bold">
+        Teams
+      </p>
 
-                  <p className="mt-2 text-sm text-white/55">
-                    Manage your teams.
-                  </p>
+      <p className="mt-2 text-sm text-white/55">
+        Manage your teams.
+      </p>
 
-                  <p className="mt-5 text-sm font-semibold text-[#D8F200]">
-                    Open →
-                  </p>
-                </Link>
-              </div>
-            </section>
+      <p className="mt-5 text-sm font-semibold text-[#D8F200]">
+        Open →
+      </p>
+    </Link>
+  </div>
+</section>
 
-            <section className="rounded-3xl border border-white/10 bg-[#081642] p-6 md:p-7">
+<Link
+  href="/dashboard/resume"
+  className="group block rounded-3xl border border-[#D8F200]/25 bg-[#D8F200]/10 p-6 transition hover:bg-[#D8F200]/15 md:p-7"
+>
+  <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+    <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
+          RADR Resumé
+        </p>
+
+        <span className="rounded-full bg-[#D8F200] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#0B1F5C]">
+          Premium
+        </span>
+
+        <span className="rounded-full border border-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/55">
+          Coming Soon
+        </span>
+      </div>
+
+      <h2 className="mt-4 text-2xl font-extrabold">
+        Turn your RADR into your athlete resumé.
+      </h2>
+
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">
+        Preview how your profile, experience,
+        achievements, highlights and development
+        will come together in one professional
+        sporting resumé.
+      </p>
+    </div>
+
+    <span className="shrink-0 rounded-xl bg-[#D8F200] px-5 py-3 text-sm font-extrabold text-[#0B1F5C] transition group-hover:scale-[1.02]">
+      Preview →
+    </span>
+  </div>
+</Link>
+
+<section className="rounded-3xl border border-white/10 bg-[#081642] p-6 md:p-7">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
                 Keep Going
               </p>
