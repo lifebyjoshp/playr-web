@@ -837,10 +837,6 @@ export default function DashboardPage() {
           RADR Resumé
         </p>
 
-        <span className="rounded-full bg-[#D8F200] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#0B1F5C]">
-          Premium
-        </span>
-
         <span className="rounded-full border border-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/55">
           Coming Soon
         </span>

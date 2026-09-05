@@ -21,7 +21,6 @@ const navItems = [
   {
     label: "RADR Resumé",
     href: "/dashboard/resume",
-    premium: true,
   },
 
   { label: BRAND.watchlistLabel, href: "/watchlist" },
@@ -56,29 +55,16 @@ export default function AppShell({
 
                 return (
                   <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                      isActive
-                        ? "bg-[#D8F200] text-[#0B1F5C]"
-                        : "bg-[#081642] text-white/80 hover:bg-white/15 hover:text-white"
-                    }`}
-                  >
-                    <span>{item.label}</span>
-
-                    {"premium" in item &&
-                      item.premium && (
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.12em] ${
-                            isActive
-                              ? "bg-[#0B1F5C]/10 text-[#0B1F5C]"
-                              : "bg-[#D8F200] text-[#0B1F5C]"
-                          }`}
-                        >
-                          Premium
-                        </span>
-                      )}
-                  </Link>
+  key={item.href}
+  href={item.href}
+  className={`block rounded-xl px-4 py-3 text-sm font-semibold transition ${
+    isActive
+      ? "bg-[#D8F200] text-[#0B1F5C]"
+      : "bg-[#081642] text-white/80 hover:bg-white/15 hover:text-white"
+  }`}
+>
+  {item.label}
+</Link>
                 );
               })}
             </nav>

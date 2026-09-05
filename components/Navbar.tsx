@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "next/navigation";
+import { BRAND } from "../lib/branding";
 
 export default function Navbar() {
   const router = useRouter();
@@ -42,13 +43,12 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0B1F5C]/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        
         {/* LOGO */}
         <Link
           href={user ? "/feed" : "/"}
           className="text-xl font-extrabold tracking-wide"
         >
-          RADR
+          {BRAND.name}
         </Link>
 
         {/* NAV LINKS */}
@@ -68,11 +68,22 @@ export default function Navbar() {
           </Link>
 
           <Link
-  href={user ? "/watchlist" : "/login?message=login-required"}
-  className="text-sm font-medium text-white/85 transition hover:text-white"
->
-  Watchlist
-</Link>
+            href={user ? "/watchlist" : "/login?message=login-required"}
+            className="text-sm font-medium text-white/85 transition hover:text-white"
+          >
+            Watchlist
+          </Link>
+
+          <Link
+            href={
+              user
+                ? "/dashboard/resume"
+                : "/login?message=login-required"
+            }
+            className="text-sm font-medium text-white/85 transition hover:text-white"
+          >
+            RADR Resumé
+          </Link>
 
           <Link
             href={user ? "/dashboard" : "/login?message=login-required"}

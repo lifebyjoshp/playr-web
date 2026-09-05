@@ -5,7 +5,7 @@ import { useState } from "react";
 import AppShell from "../../../components/AppShell";
 
 export default function RadrResumePage() {
-  const [showPremiumMessage, setShowPremiumMessage] = useState(false);
+  const [showComingSoonMessage, setShowComingSoonMessage] = useState(false);
 
   return (
     <AppShell>
@@ -14,11 +14,7 @@ export default function RadrResumePage() {
           <div className="grid gap-10 p-6 md:p-10 lg:grid-cols-2 lg:items-center">
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-full bg-[#D8F200] px-3 py-1 text-xs font-extrabold uppercase tracking-[0.16em] text-[#0B1F5C]">
-                  RADR Premium
-                </span>
-
-                <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-white/60">
+                <span className="rounded-full border border-[#D8F200]/30 bg-[#D8F200]/10 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.16em] text-[#D8F200]">
                   Coming Soon
                 </span>
               </div>
@@ -43,7 +39,7 @@ export default function RadrResumePage() {
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
-                  onClick={() => setShowPremiumMessage(true)}
+                  onClick={() => setShowComingSoonMessage(true)}
                   className="rounded-xl bg-[#D8F200] px-6 py-4 text-sm font-extrabold text-[#0B1F5C] transition hover:opacity-90"
                 >
                   Create My RADR Resumé
@@ -57,10 +53,10 @@ export default function RadrResumePage() {
                 </Link>
               </div>
 
-              {showPremiumMessage && (
+              {showComingSoonMessage && (
                 <div className="mt-5 max-w-xl rounded-2xl border border-[#D8F200]/25 bg-[#D8F200]/10 p-5">
                   <p className="font-bold text-[#D8F200]">
-                    Coming soon with RADR Premium.
+                    RADR Resumé is coming soon.
                   </p>
 
                   <p className="mt-2 text-sm leading-6 text-white/65">
@@ -211,9 +207,11 @@ export default function RadrResumePage() {
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-6">
               <p className="text-sm font-extrabold text-[#D8F200]">01</p>
+
               <h3 className="mt-5 text-xl font-bold">
                 Built automatically
               </h3>
+
               <p className="mt-3 text-sm leading-6 text-white/60">
                 Use the information already stored in your RADR profile.
               </p>
@@ -221,9 +219,11 @@ export default function RadrResumePage() {
 
             <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-6">
               <p className="text-sm font-extrabold text-[#D8F200]">02</p>
+
               <h3 className="mt-5 text-xl font-bold">
                 Made for athletes
               </h3>
+
               <p className="mt-3 text-sm leading-6 text-white/60">
                 Showcase experience, achievements, development and highlights.
               </p>
@@ -231,9 +231,11 @@ export default function RadrResumePage() {
 
             <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-6">
               <p className="text-sm font-extrabold text-[#D8F200]">03</p>
+
               <h3 className="mt-5 text-xl font-bold">
                 Ready to share
               </h3>
+
               <p className="mt-3 text-sm leading-6 text-white/60">
                 Present a professional snapshot of your sporting journey.
               </p>
@@ -273,8 +275,8 @@ export default function RadrResumePage() {
 
         <section className="py-16">
           <div className="rounded-3xl border border-[#D8F200]/20 bg-[#D8F200]/10 p-7 text-center md:p-12">
-            <span className="inline-flex rounded-full bg-[#D8F200] px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[#0B1F5C]">
-              RADR Premium
+            <span className="inline-flex rounded-full border border-[#D8F200]/30 bg-[#D8F200]/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[#D8F200]">
+              Coming Soon
             </span>
 
             <h2 className="mt-6 text-3xl font-extrabold md:text-5xl">
@@ -292,11 +294,24 @@ export default function RadrResumePage() {
 
             <button
               type="button"
-              onClick={() => setShowPremiumMessage(true)}
+              onClick={() => setShowComingSoonMessage(true)}
               className="mt-8 rounded-xl bg-[#D8F200] px-7 py-4 text-sm font-extrabold text-[#0B1F5C]"
             >
               Create My RADR Resumé
             </button>
+
+            {showComingSoonMessage && (
+              <div className="mx-auto mt-5 max-w-xl rounded-2xl border border-white/10 bg-[#081642]/60 p-5">
+                <p className="font-bold text-[#D8F200]">
+                  RADR Resumé is coming soon.
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-white/65">
+                  Keep building your RADR now. Everything you add helps prepare
+                  your athlete resumé for launch.
+                </p>
+              </div>
+            )}
           </div>
         </section>
       </section>
