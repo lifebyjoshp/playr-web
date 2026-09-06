@@ -73,36 +73,6 @@ export default function AppShell({
 
         <section>{children}</section>
       </div>
-
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[#0B1F5C]/95 px-2 py-2 backdrop-blur lg:hidden">
-        <div className="grid grid-cols-5 gap-2">
-          {[
-            navItems[0], // Home
-            navItems[1], // Explore
-            navItems[2], // Teams
-            navItems[3], // Family
-            navItems[4], // Athlete
-          ].map((item) => {
-            const isActive =
-              pathname === item.href ||
-              pathname.startsWith(item.href);
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`rounded-xl px-2 py-2 text-center text-xs font-bold ${
-                  isActive
-                    ? "bg-[#D8F200] text-[#0B1F5C]"
-                    : "bg-white/10 text-white/80"
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
     </main>
   );
 }
