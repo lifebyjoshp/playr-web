@@ -34,6 +34,16 @@ function createSlug(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function getPendingTeamInvite() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem(
+    "radr_pending_team_invite"
+  );
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
 
@@ -133,6 +143,16 @@ export default function OnboardingPage() {
       }
 
       if (data.onboarding_complete) {
+        const pendingTeamInvite =
+          getPendingTeamInvite();
+
+        if (pendingTeamInvite) {
+          router.replace(
+            `/join/team/${pendingTeamInvite}`
+          );
+          return;
+        }
+
         router.replace("/dashboard");
         return;
       }
@@ -518,6 +538,17 @@ export default function OnboardingPage() {
 
     setMessage("");
     setSaving(false);
+
+    const pendingTeamInvite =
+      getPendingTeamInvite();
+
+    if (pendingTeamInvite) {
+      router.replace(
+        `/join/team/${pendingTeamInvite}`
+      );
+      return;
+    }
+
     setStep(5);
   };
 
