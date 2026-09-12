@@ -1,5 +1,6 @@
 "use client";
 
+import InviteTeammates from "@/components/InviteTeammates";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import AppShell from "../../../../../components/AppShell";
@@ -419,32 +420,25 @@ export default function ManageTeamPage() {
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-8">
             <TeamDetailsCard
-              values={form}
-              canManage={canManage}
-              saving={savingTeam}
-              onChange={handleFormChange}
-              onSave={handleSaveTeam}
-            />
+  values={form}
+  canManage={canManage}
+  saving={savingTeam}
+  onChange={handleFormChange}
+  onSave={handleSaveTeam}
+/>
 
-            <TeamMemberSearch
-              teamId={team.id}
-              viewerId={viewerId || ""}
-              canManage={canManage}
-              memberships={memberships}
-              onMemberAdded={loadTeam}
-            />
+<InviteTeammates
+  teamId={team.id}
+  teamName={team.display_name || team.team_name}
+/>
 
-            <div className="rounded-3xl border border-dashed border-white/15 bg-white/5 p-6 md:p-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
-                Coming Next
-              </p>
-              <h2 className="mt-3 text-2xl font-bold">Invitations</h2>
-              <p className="mt-2 text-sm text-white/65">
-                Invite new members by email or mobile and let them accept or
-                decline before joining the roster.
-              </p>
-            </div>
-          </div>
+<TeamMemberSearch
+  teamId={team.id}
+  viewerId={viewerId || ""}
+  canManage={canManage}
+  memberships={memberships}
+  onMemberAdded={loadTeam}
+/>
 
           <TeamRosterCard
             memberships={memberships}
