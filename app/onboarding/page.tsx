@@ -24,6 +24,22 @@ type Profile = {
   founding_athlete_number: number | null;
 };
 
+type TeamSearchResult = {
+  id: string;
+  display_name: string | null;
+  sport: string | null;
+  country: string | null;
+  state: string | null;
+  association_name: string | null;
+  competition_name: string | null;
+  club_name: string | null;
+  team_name: string | null;
+  age_group: string | null;
+  gender: string | null;
+  division: string | null;
+  season: string | null;
+};
+
 const TOTAL_STEPS = 5;
 
 function createSlug(value: string) {
@@ -59,19 +75,14 @@ export default function OnboardingPage() {
   const [sport, setSport] = useState("");
   const [position, setPosition] = useState("");
 
-  const [associationName, setAssociationName] =
-    useState("");
-
-  const [competitionName, setCompetitionName] =
-    useState("");
-
-  const [clubName, setClubName] = useState("");
-  const [teamName, setTeamName] = useState("");
   const [ageGroup, setAgeGroup] = useState("");
   const [country, setCountry] = useState("");
   const [stateRegion, setStateRegion] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [isCurrent, setIsCurrent] = useState(true);
+
+  const [teamSearch, setTeamSearch] = useState("");
+  const [teamResults, setTeamResults] = useState<TeamSearchResult[]>([]);
+  const [searchingTeams, setSearchingTeams] = useState(false);
+  const [joiningTeamId, setJoiningTeamId] = useState<string | null>(null);
 
   const [profilePhotoUrl, setProfilePhotoUrl] =
     useState("");
@@ -275,119 +286,155 @@ export default function OnboardingPage() {
     setStep(3);
   };
 
-  const saveTeam = async () => {
-    if (!profile) return;
+  const searchTeams = async () => {
+    const query = teamSearch.trim();
 
-    const hasTeamDetails = Boolean(
-      associationName.trim() ||
-        competitionName.trim() ||
-        clubName.trim() ||
-        teamName.trim()
-    );
-
-    if (!hasTeamDetails) {
-      setTeamAdded(false);
-      setStep(4);
+    if (query.length < 2) {
+      setMessageType("error");
+      setMessage("Enter at least 2 characters to search for your team.");
+      setTeamResults([]);
       return;
     }
 
-    setSaving(true);
+    setSearchingTeams(true);
     setMessage("");
 
-    const displayName = [
-      clubName.trim(),
-      teamName.trim(),
-      ageGroup.trim(),
-    ]
-      .filter(Boolean)
-      .join(" ");
+    const safeQuery = query.replace(/[%_,]/g, "");
 
-    const {
-      data: teamData,
-      error: teamError,
-    } = await supabase
+    const { data, error } = await supabase
       .from("teams")
-      .insert({
+      .select(
+        `
+        id,
+        display_name,
         sport,
-        country: country.trim() || null,
-        state: stateRegion.trim() || null,
-        association_name:
-          associationName.trim() || null,
-        competition_name:
-          competitionName.trim() || null,
-        club_name: clubName.trim() || null,
-        team_name: teamName.trim() || null,
-        age_group: ageGroup.trim() || null,
-        gender: gender || null,
-        display_name:
-          displayName ||
-          clubName.trim() ||
-          teamName.trim() ||
-          `${sport} Team`,
-      })
-      .select("id")
-      .single();
+        country,
+        state,
+        association_name,
+        competition_name,
+        club_name,
+        team_name,
+        age_group,
+        gender,
+        division,
+        season
+      `
+      )
+      .or(
+        `display_name.ilike.%${safeQuery}%,club_name.ilike.%${safeQuery}%,team_name.ilike.%${safeQuery}%,association_name.ilike.%${safeQuery}%`
+      )
+      .order("display_name", { ascending: true })
+      .limit(20);
 
-    if (teamError || !teamData) {
+    if (error) {
       setMessageType("error");
-
-      setMessage(
-        `Unable to create your team: ${
-          teamError?.message ||
-          "Unknown error"
-        }`
-      );
-
-      setSaving(false);
+      setMessage(`Unable to search teams: ${error.message}`);
+      setTeamResults([]);
+      setSearchingTeams(false);
       return;
     }
 
-    const { error: membershipError } =
+    const matchingTeams = ((data || []) as TeamSearchResult[]).filter(
+      (team) => !sport || !team.sport || team.sport === sport
+    );
+
+    setTeamResults(matchingTeams);
+
+    if (matchingTeams.length === 0) {
+      setMessageType("info");
+      setMessage(
+        "No matching RADR teams found. You can skip this step and connect your team later."
+      );
+    }
+
+    setSearchingTeams(false);
+  };
+
+  const joinExistingTeam = async (team: TeamSearchResult) => {
+    if (!profile) return;
+
+    setJoiningTeamId(team.id);
+    setMessage("");
+
+    const { data: existingMembership, error: membershipCheckError } =
       await supabase
+        .from("player_team_memberships")
+        .select("id, membership_status")
+        .eq("profile_id", profile.id)
+        .eq("team_id", team.id)
+        .maybeSingle();
+
+    if (membershipCheckError) {
+      setMessageType("error");
+      setMessage(
+        `Unable to check your team membership: ${membershipCheckError.message}`
+      );
+      setJoiningTeamId(null);
+      return;
+    }
+
+    if (existingMembership) {
+      const { error: updateError } = await supabase
+        .from("player_team_memberships")
+        .update({
+          membership_status: "active",
+          membership_role: "player",
+          is_current: true,
+          position: position.trim() || null,
+        })
+        .eq("id", existingMembership.id);
+
+      if (updateError) {
+        setMessageType("error");
+        setMessage(`Unable to join this team: ${updateError.message}`);
+        setJoiningTeamId(null);
+        return;
+      }
+    } else {
+      const { error: insertError } = await supabase
         .from("player_team_memberships")
         .insert({
           profile_id: profile.id,
-          team_id: teamData.id,
-          position: position.trim(),
-          start_date: startDate || null,
-          end_date: null,
-          is_current: isCurrent,
+          team_id: team.id,
+          position: position.trim() || null,
+          membership_role: "player",
+          membership_status: "active",
+          is_current: true,
         });
 
-    if (membershipError) {
-      setMessageType("error");
-
-      setMessage(
-        `Team created, but experience could not be saved: ${membershipError.message}`
-      );
-
-      setSaving(false);
-      return;
+      if (insertError) {
+        setMessageType("error");
+        setMessage(`Unable to join this team: ${insertError.message}`);
+        setJoiningTeamId(null);
+        return;
+      }
     }
 
-    const { error: profileError } =
-      await supabase
-        .from("profiles")
-        .update({
-          country: country.trim() || null,
-          state: stateRegion.trim() || null,
-          age_group: ageGroup.trim() || null,
-        })
-        .eq("id", profile.id);
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        country: team.country || country || null,
+        state: team.state || stateRegion || null,
+        age_group: team.age_group || ageGroup || null,
+      })
+      .eq("id", profile.id);
 
     if (profileError) {
       setMessageType("error");
-
       setMessage(
-        `Team saved, but athlete details could not be updated: ${profileError.message}`
+        `Team joined, but athlete details could not be updated: ${profileError.message}`
       );
-
-      setSaving(false);
+      setJoiningTeamId(null);
       return;
     }
 
+    setCountry(team.country || country);
+    setStateRegion(team.state || stateRegion);
+    setAgeGroup(team.age_group || ageGroup);
     setTeamAdded(true);
-    setSaving(false);
+    setJoiningTeamId(null);
+    setMessageType("success");
+    setMessage(`Connected to ${team.display_name || team.team_name || "your team"}.`);
     setStep(4);
   };
 
@@ -684,185 +731,147 @@ export default function OnboardingPage() {
         {step === 3 && (
           <section className="rounded-[32px] border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur md:p-9">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#D8F200]">
-              Current Team
+              Find Your Team
             </p>
 
             <h1 className="mt-3 text-3xl font-extrabold md:text-4xl">
-              Where are you playing now?
+              Connect to your team on RADR.
             </h1>
 
             <p className="mt-4 max-w-2xl leading-7 text-white/65">
-              Add your current team so
-              your RADR starts with real
-              sporting context. You can
-              skip this and add it later.
+              Search for the team you already play for. Joining an existing
+              team keeps everyone connected to one shared roster and avoids
+              duplicate team pages.
             </p>
 
-            <div className="mt-8 space-y-5">
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    Country
-                  </label>
-
-                  <input
-                    type="text"
-                    value={country}
-                    onChange={(event) =>
-                      setCountry(
-                        event.target.value
-                      )
-                    }
-                    placeholder="e.g. Australia"
-                    className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 outline-none focus:border-[#D8F200]/50"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    State / Region
-                  </label>
-
-                  <input
-                    type="text"
-                    value={stateRegion}
-                    onChange={(event) =>
-                      setStateRegion(
-                        event.target.value
-                      )
-                    }
-                    placeholder="e.g. NSW"
-                    className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 outline-none focus:border-[#D8F200]/50"
-                  />
-                </div>
+            {getPendingTeamInvite() ? (
+              <div className="mt-8 rounded-3xl border border-[#D8F200]/25 bg-[#D8F200]/10 p-6">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#D8F200]">
+                  Team invite waiting
+                </p>
+                <h2 className="mt-2 text-xl font-extrabold">
+                  You already have a RADR team invitation.
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-white/65">
+                  Finish setting up your profile and we&apos;ll return you to
+                  that team invitation automatically.
+                </p>
               </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Association
-                </label>
-
-                <input
-                  type="text"
-                  value={associationName}
-                  onChange={(event) =>
-                    setAssociationName(
-                      event.target.value
-                    )
-                  }
-                  placeholder="e.g. Basketball NSW"
-                  className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 outline-none focus:border-[#D8F200]/50"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Competition
-                </label>
-
-                <input
-                  type="text"
-                  value={competitionName}
-                  onChange={(event) =>
-                    setCompetitionName(
-                      event.target.value
-                    )
-                  }
-                  placeholder="e.g. Junior Premier League"
-                  className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 outline-none focus:border-[#D8F200]/50"
-                />
-              </div>
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    Club
+            ) : (
+              <>
+                <div className="mt-8 rounded-3xl bg-[#081642] p-5 md:p-6">
+                  <label className="mb-2 block text-sm font-semibold">
+                    Search RADR teams
                   </label>
 
-                  <input
-                    type="text"
-                    value={clubName}
-                    onChange={(event) =>
-                      setClubName(
-                        event.target.value
-                      )
-                    }
-                    placeholder="e.g. Newcastle Falcons"
-                    className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 outline-none focus:border-[#D8F200]/50"
-                  />
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      type="text"
+                      value={teamSearch}
+                      onChange={(event) => setTeamSearch(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          if (!searchingTeams) {
+                            void searchTeams();
+                          }
+                        }
+                      }}
+                      placeholder="e.g. Newcastle Falcons U14 Girls"
+                      className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none focus:border-[#D8F200]/50"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => void searchTeams()}
+                      disabled={searchingTeams}
+                      className="rounded-xl bg-[#D8F200] px-6 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
+                    >
+                      {searchingTeams ? "Searching..." : "Search"}
+                    </button>
+                  </div>
+
+                  <p className="mt-3 text-xs leading-5 text-white/45">
+                    Try your club, team name, association or age group.
+                  </p>
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    Team
-                  </label>
+                {teamResults.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/45">
+                      Matching teams
+                    </p>
 
-                  <input
-                    type="text"
-                    value={teamName}
-                    onChange={(event) =>
-                      setTeamName(
-                        event.target.value
-                      )
-                    }
-                    placeholder="e.g. U14 Girls"
-                    className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 outline-none focus:border-[#D8F200]/50"
-                  />
+                    {teamResults.map((team) => {
+                      const displayName =
+                        team.display_name ||
+                        [team.club_name, team.team_name, team.age_group]
+                          .filter(Boolean)
+                          .join(" " ) ||
+                        "RADR Team";
+
+                      const teamMeta = [
+                        team.sport,
+                        team.competition_name,
+                        team.division,
+                        team.season,
+                      ]
+                        .filter(Boolean)
+                        .join(" • " );
+
+                      const location = [team.state, team.country]
+                        .filter(Boolean)
+                        .join(", " );
+
+                      return (
+                        <div
+                          key={team.id}
+                          className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-[#081642] p-5 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="min-w-0">
+                            <h3 className="font-bold text-white">
+                              {displayName}
+                            </h3>
+
+                            {teamMeta && (
+                              <p className="mt-1 text-sm text-white/55">
+                                {teamMeta}
+                              </p>
+                            )}
+
+                            {location && (
+                              <p className="mt-1 text-xs text-white/40">
+                                {location}
+                              </p>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => void joinExistingTeam(team)}
+                            disabled={Boolean(joiningTeamId)}
+                            className="shrink-0 rounded-xl bg-[#D8F200] px-5 py-3 text-sm font-bold text-[#0B1F5C] disabled:opacity-60"
+                          >
+                            {joiningTeamId === team.id
+                              ? "Joining..."
+                              : "Join team"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <p className="font-semibold">Can&apos;t find your team?</p>
+                  <p className="mt-1 text-sm leading-6 text-white/55">
+                    Skip this step for now. Teams should be deliberately
+                    created from the Teams area by someone who wants to manage
+                    that shared team page.
+                  </p>
                 </div>
-              </div>
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    Age Group
-                  </label>
-
-                  <input
-                    type="text"
-                    value={ageGroup}
-                    onChange={(event) =>
-                      setAgeGroup(
-                        event.target.value
-                      )
-                    }
-                    placeholder="e.g. U14"
-                    className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 outline-none focus:border-[#D8F200]/50"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    Start Date
-                  </label>
-
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(event) =>
-                      setStartDate(
-                        event.target.value
-                      )
-                    }
-                    className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 outline-none focus:border-[#D8F200]/50"
-                  />
-                </div>
-              </div>
-
-              <label className="flex items-center gap-3 rounded-xl bg-[#081642] p-4 text-sm">
-                <input
-                  type="checkbox"
-                  checked={isCurrent}
-                  onChange={(event) =>
-                    setIsCurrent(
-                      event.target.checked
-                    )
-                  }
-                />
-
-                I currently play for
-                this team
-              </label>
-            </div>
+              </>
+            )}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <button
@@ -876,34 +885,19 @@ export default function OnboardingPage() {
                 ← Back
               </button>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMessage("");
-                    setTeamAdded(false);
-                    setStep(4);
-                  }}
-                  className="rounded-xl border border-white/15 px-6 py-3 font-semibold text-white/65"
-                >
-                  Skip for now
-                </button>
-
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => {
-                    if (!saving) {
-                      void saveTeam();
-                    }
-                  }}
-                  className="rounded-xl bg-[#D8F200] px-6 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
-                >
-                  {saving
-                    ? "Saving..."
-                    : "Continue →"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMessage("");
+                  setTeamAdded(false);
+                  setStep(4);
+                }}
+                className="rounded-xl border border-white/15 px-6 py-3 font-semibold text-white/65"
+              >
+                {getPendingTeamInvite()
+                  ? "Continue →"
+                  : "Skip for now →"}
+              </button>
             </div>
           </section>
         )}
@@ -1092,7 +1086,7 @@ export default function OnboardingPage() {
                   </span>
 
                   <span className="font-semibold">
-                    Current team
+                    Team connected
                   </span>
                 </div>
 
