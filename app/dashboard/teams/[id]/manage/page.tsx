@@ -418,37 +418,40 @@ export default function ManageTeamPage() {
         )}
 
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="space-y-8">
-            <TeamDetailsCard
-  values={form}
-  canManage={canManage}
-  saving={savingTeam}
-  onChange={handleFormChange}
-  onSave={handleSaveTeam}
-/>
+  <div className="space-y-8">
+    <TeamDetailsCard
+      values={form}
+      canManage={canManage}
+      saving={savingTeam}
+      onChange={handleFormChange}
+      onSave={handleSaveTeam}
+    />
 
-<InviteTeammates
-  teamId={team.id}
-  teamName={team.display_name || team.team_name}
-/>
+    {canManage && (
+      <InviteTeammates
+        teamId={team.id}
+        teamName={team.display_name || team.team_name}
+      />
+    )}
 
-<TeamMemberSearch
-  teamId={team.id}
-  viewerId={viewerId || ""}
-  canManage={canManage}
-  memberships={memberships}
-  onMemberAdded={loadTeam}
-/>
+    <TeamMemberSearch
+      teamId={team.id}
+      viewerId={viewerId || ""}
+      canManage={canManage}
+      memberships={memberships}
+      onMemberAdded={loadTeam}
+    />
+  </div>
 
-          <TeamRosterCard
-            memberships={memberships}
-            viewerId={viewerId}
-            canManage={canManage}
-            onRoleChange={handleRoleChange}
-            onRemoveMember={handleRemoveMember}
-          />
-        </div>
-      </section>
-    </AppShell>
-  );
+  <TeamRosterCard
+    memberships={memberships}
+    viewerId={viewerId}
+    canManage={canManage}
+    onRoleChange={handleRoleChange}
+    onRemoveMember={handleRemoveMember}
+  />
+</div>
+</section>
+</AppShell>
+);
 }
