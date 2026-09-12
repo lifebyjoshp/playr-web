@@ -249,7 +249,7 @@ export default function JoinTeamPage() {
         .insert({
           team_id: team.id,
           profile_id: userId,
-          membership_role: "player",
+          membership_role: "athlete",
           membership_status: "active",
           is_current: true,
         });
