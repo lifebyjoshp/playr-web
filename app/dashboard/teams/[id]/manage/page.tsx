@@ -382,7 +382,7 @@ export default function ManageTeamPage() {
   if (loading) {
     return (
       <AppShell>
-        <section className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+        <section className="mx-auto max-w-6xl px-3 py-5 sm:px-4 sm:py-7 md:px-6 md:py-8">
           <div className="rounded-2xl border border-white/10 bg-white/10 p-6">
             Loading team management...
           </div>
@@ -394,7 +394,7 @@ export default function ManageTeamPage() {
   if (!team) {
     return (
       <AppShell>
-        <section className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+        <section className="mx-auto max-w-6xl px-3 py-5 sm:px-4 sm:py-7 md:px-6 md:py-8">
           <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-6 text-red-100">
             {message || "Team not found."}
           </div>
@@ -405,52 +405,54 @@ export default function ManageTeamPage() {
 
   return (
     <AppShell>
-      <section className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+      <section className="mx-auto max-w-6xl px-3 py-5 sm:px-4 sm:py-7 md:px-6 md:py-8">
         <TeamManagementHeader team={team} />
 
         <TeamStatusMessage message={message} type={messageType} />
 
         {!canManage && (
-          <div className="mb-6 rounded-2xl border border-yellow-300/20 bg-yellow-400/10 p-4 text-sm text-yellow-100">
+          <div className="mb-4 rounded-xl border border-yellow-300/20 bg-yellow-400/10 p-3 text-xs text-yellow-100 sm:mb-6 sm:rounded-2xl sm:p-4 sm:text-sm">
             You can view this team, but your current role does not allow team
             management.
           </div>
         )}
 
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
-  <div className="space-y-8">
-    <TeamDetailsCard
-      values={form}
-      canManage={canManage}
-      saving={savingTeam}
-      onChange={handleFormChange}
-      onSave={handleSaveTeam}
-    />
+        <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-8">
+          <div className="order-2 space-y-4 sm:space-y-6 xl:order-1 xl:space-y-8">
+            <TeamDetailsCard
+              values={form}
+              canManage={canManage}
+              saving={savingTeam}
+              onChange={handleFormChange}
+              onSave={handleSaveTeam}
+            />
 
-    {canManage && (
-      <InviteTeammates
-        teamId={team.id}
-        teamName={team.display_name || team.team_name}
-      />
-    )}
+            {canManage && (
+              <InviteTeammates
+                teamId={team.id}
+                teamName={team.display_name || team.team_name}
+              />
+            )}
 
-    <TeamMemberSearch
-      teamId={team.id}
-      viewerId={viewerId || ""}
-      canManage={canManage}
-      memberships={memberships}
-      onMemberAdded={loadTeam}
-    />
-  </div>
+            <TeamMemberSearch
+              teamId={team.id}
+              viewerId={viewerId || ""}
+              canManage={canManage}
+              memberships={memberships}
+              onMemberAdded={loadTeam}
+            />
+          </div>
 
-  <TeamRosterCard
-    memberships={memberships}
-    viewerId={viewerId}
-    canManage={canManage}
-    onRoleChange={handleRoleChange}
-    onRemoveMember={handleRemoveMember}
-  />
-</div>
+          <div className="order-1 xl:order-2">
+            <TeamRosterCard
+              memberships={memberships}
+              viewerId={viewerId}
+              canManage={canManage}
+              onRoleChange={handleRoleChange}
+              onRemoveMember={handleRemoveMember}
+            />
+          </div>
+        </div>
 </section>
 </AppShell>
 );
