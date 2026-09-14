@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Navbar from "../../../components/Navbar";
+import InviteTeammates from "../../../components/InviteTeammates";
 import { BRAND } from "../../../lib/branding";
 import { supabase } from "../../../lib/supabase";
 
@@ -65,6 +66,7 @@ export default function PublicTeamPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [canInvite, setCanInvite] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
 
   useEffect(() => {
     const loadTeam = async () => {
@@ -146,25 +148,15 @@ export default function PublicTeamPage() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        const { data: currentProfile } = await supabase
-          .from("profiles")
+        const { data: activeMembership } = await supabase
+          .from("player_team_memberships")
           .select("id")
-          .eq("id", user.id)
+          .eq("team_id", loadedTeam.id)
+          .eq("profile_id", user.id)
+          .eq("membership_status", "active")
           .maybeSingle();
 
-        if (currentProfile) {
-          const { data: currentMembership } = await supabase
-            .from("player_team_memberships")
-            .select("id")
-            .eq("team_id", loadedTeam.id)
-            .eq("profile_id", currentProfile.id)
-            .eq("membership_status", "active")
-            .maybeSingle();
-
-          setCanInvite(Boolean(currentMembership));
-        } else {
-          setCanInvite(false);
-        }
+        setCanInvite(Boolean(activeMembership));
       } else {
         setCanInvite(false);
       }
@@ -311,14 +303,15 @@ export default function PublicTeamPage() {
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
-                  {canInvite && team && (
-                    <Link
-                      href={`/join/team/${team.id}`}
+                  {canInvite && (
+                    <button
+                      type="button"
+                      onClick={() => setShowInvite((current) => !current)}
                       className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-[#D8F200] px-3 py-2 text-xs font-extrabold text-[#0B1F5C] transition hover:brightness-95 sm:min-h-[44px] sm:px-4 sm:text-sm"
                     >
                       <span className="mr-1 text-base leading-none">+</span>
                       Invite
-                    </Link>
+                    </button>
                   )}
 
                   <div className="rounded-full border border-white/10 bg-[#081642] px-3 py-1.5 text-xs font-bold text-white/75">
@@ -326,6 +319,15 @@ export default function PublicTeamPage() {
                   </div>
                 </div>
               </div>
+
+              {canInvite && showInvite && (
+                <div className="mt-4">
+                  <InviteTeammates
+                    teamId={team.id}
+                    teamName={team.display_name}
+                  />
+                </div>
+              )}
 
               {message && (
                 <div className="mt-4 rounded-xl border border-yellow-300/20 bg-yellow-400/10 p-3 text-xs text-yellow-100 sm:text-sm">
