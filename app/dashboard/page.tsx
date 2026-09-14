@@ -554,39 +554,39 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      <section className="mx-auto max-w-7xl px-4 py-10 md:px-6 md:py-12">
-        <div className="mb-10">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#D8F200]">
+      <section className="mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-7 md:px-6 md:py-12">
+        <div className="mb-5 sm:mb-7 md:mb-10">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#D8F200] sm:text-sm sm:tracking-[0.25em]">
             Dashboard
           </p>
 
-          <h1 className="mt-3 text-4xl font-extrabold md:text-5xl">
+          <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl md:mt-3 md:text-5xl">
             {getGreeting()}, {displayName}
           </h1>
 
-          <p className="mt-3 max-w-3xl text-white/70">
+          <p className="mt-2 max-w-3xl text-sm leading-5 text-white/70 sm:mt-3 sm:text-base sm:leading-normal">
             Keep building your athlete
             story, track your development
             and strengthen your RADR.
           </p>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
-          <div className="space-y-6">
-            <section className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur md:p-7">
-              <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+        <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
+          <div className="space-y-4 sm:space-y-6">
+            <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 md:p-7">
+              <div className="flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:justify-between md:gap-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
                     RADR Score
                   </p>
 
-                  <div className="mt-3 flex flex-wrap items-end gap-x-5 gap-y-2">
-                    <p className="text-6xl font-extrabold">
+                  <div className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1 sm:mt-3 sm:gap-x-5 sm:gap-y-2">
+                    <p className="text-4xl font-extrabold sm:text-5xl md:text-6xl">
                       {radrScore}
                     </p>
 
                     <div className="pb-1">
-                      <p className="text-lg font-bold">
+                      <p className="text-base font-bold sm:text-lg">
                         {scoreStatus.label}
                       </p>
 
@@ -596,7 +596,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <p className="mt-4 max-w-xl text-sm leading-6 text-white/65">
+                  <p className="mt-3 max-w-xl text-xs leading-5 text-white/65 sm:mt-4 sm:text-sm sm:leading-6">
                     {scoreStatus.description}
                   </p>
                 </div>
@@ -604,14 +604,14 @@ export default function DashboardPage() {
                 {profile.public_slug && (
                   <Link
                     href={`/p/${profile.public_slug}`}
-                    className="rounded-xl border border-white/15 bg-white/10 px-5 py-3 text-center text-sm font-semibold transition hover:bg-white/15"
+                    className="min-h-[44px] rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-center text-sm font-semibold transition hover:bg-white/15 md:px-5 md:py-3"
                   >
                     View Public Profile
                   </Link>
                 )}
               </div>
 
-              <div className="mt-6 h-3 overflow-hidden rounded-full bg-white/10">
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10 sm:mt-6 sm:h-3">
                 <div
                   className="h-full rounded-full bg-[#D8F200] transition-all"
                   style={{
@@ -620,17 +620,17 @@ export default function DashboardPage() {
                 />
               </div>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-6 sm:gap-3">
                 {scoreItems.map(
                   (item) => (
                     <Link
                       key={item.label}
                       href={item.href}
-                      className="flex items-center justify-between gap-4 rounded-xl bg-[#081642] px-4 py-3 transition hover:bg-white/15"
+                      className="flex min-h-[52px] items-center justify-between gap-2 rounded-xl bg-[#081642] px-3 py-2.5 transition hover:bg-white/15 sm:gap-4 sm:px-4 sm:py-3"
                     >
-                      <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                         <span
-                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold sm:h-7 sm:w-7 sm:text-xs ${
                             item.complete
                               ? "bg-[#D8F200] text-[#0B1F5C]"
                               : "bg-white/10 text-white/50"
@@ -642,7 +642,7 @@ export default function DashboardPage() {
                         </span>
 
                         <span
-                          className={`text-sm font-semibold ${
+                          className={`truncate text-xs font-semibold sm:text-sm ${
                             item.complete
                               ? "text-white"
                               : "text-white/65"
@@ -652,7 +652,7 @@ export default function DashboardPage() {
                         </span>
                       </div>
 
-                      <span className="shrink-0 text-xs font-bold text-[#D8F200]">
+                      <span className="shrink-0 text-[10px] font-bold text-[#D8F200] sm:text-xs">
                         {item.points} pts
                       </span>
                     </Link>
@@ -661,13 +661,13 @@ export default function DashboardPage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur md:p-7">
+            <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 md:p-7">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
                   Next Opportunities
                 </p>
 
-                <h2 className="mt-2 text-2xl font-bold">
+                <h2 className="mt-1 text-xl font-bold sm:mt-2 sm:text-2xl">
                   Strengthen your RADR
                 </h2>
 
@@ -679,7 +679,7 @@ export default function DashboardPage() {
 
               {nextOpportunities.length >
               0 ? (
-                <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-4 md:mt-6 md:grid-cols-3">
                   {nextOpportunities.map(
                     (opportunity) => (
                       <Link
@@ -689,7 +689,7 @@ export default function DashboardPage() {
                         href={
                           opportunity.href
                         }
-                        className="rounded-2xl bg-[#081642] p-5 transition hover:bg-white/15"
+                        className="rounded-xl bg-[#081642] p-4 transition hover:bg-white/15 sm:rounded-2xl sm:p-5"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <p className="font-bold">
@@ -709,13 +709,13 @@ export default function DashboardPage() {
                           )}
                         </div>
 
-                        <p className="mt-3 text-sm leading-6 text-white/60">
+                        <p className="mt-2 text-xs leading-5 text-white/60 sm:mt-3 sm:text-sm sm:leading-6">
                           {
                             opportunity.description
                           }
                         </p>
 
-                        <p className="mt-4 text-sm font-semibold text-[#D8F200]">
+                        <p className="mt-3 text-xs font-semibold text-[#D8F200] sm:mt-4 sm:text-sm">
                           {opportunity.points >
                           0
                             ? `+${opportunity.points} RADR Score`
@@ -751,75 +751,75 @@ export default function DashboardPage() {
             </section>
 
             <section>
-  <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
+  <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45 sm:mb-4 sm:text-xs sm:tracking-[0.2em]">
     Continue Building
   </p>
 
-  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-4">
     <Link
       href="/dashboard/development"
-      className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
+      className="rounded-xl border border-white/10 bg-white/10 p-3 transition hover:bg-white/15 sm:rounded-2xl sm:p-5"
     >
-      <p className="text-lg font-bold">
+      <p className="text-base font-bold sm:text-lg">
         Update AD
       </p>
 
-      <p className="mt-2 text-sm text-white/55">
+      <p className="mt-1 text-xs leading-5 text-white/55 sm:mt-2 sm:text-sm">
         Track your development.
       </p>
 
-      <p className="mt-5 text-sm font-semibold text-[#D8F200]">
+      <p className="mt-3 text-xs font-semibold text-[#D8F200] sm:mt-5 sm:text-sm">
         Open →
       </p>
     </Link>
 
     <Link
       href="/dashboard/achievements"
-      className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
+      className="rounded-xl border border-white/10 bg-white/10 p-3 transition hover:bg-white/15 sm:rounded-2xl sm:p-5"
     >
-      <p className="text-lg font-bold">
+      <p className="text-base font-bold sm:text-lg">
         Achievement
       </p>
 
-      <p className="mt-2 text-sm text-white/55">
+      <p className="mt-1 text-xs leading-5 text-white/55 sm:mt-2 sm:text-sm">
         Add a sporting milestone.
       </p>
 
-      <p className="mt-5 text-sm font-semibold text-[#D8F200]">
+      <p className="mt-3 text-xs font-semibold text-[#D8F200] sm:mt-5 sm:text-sm">
         Open →
       </p>
     </Link>
 
     <Link
       href="/dashboard/highlights"
-      className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
+      className="rounded-xl border border-white/10 bg-white/10 p-3 transition hover:bg-white/15 sm:rounded-2xl sm:p-5"
     >
-      <p className="text-lg font-bold">
+      <p className="text-base font-bold sm:text-lg">
         Highlight
       </p>
 
-      <p className="mt-2 text-sm text-white/55">
+      <p className="mt-1 text-xs leading-5 text-white/55 sm:mt-2 sm:text-sm">
         Add your latest footage.
       </p>
 
-      <p className="mt-5 text-sm font-semibold text-[#D8F200]">
+      <p className="mt-3 text-xs font-semibold text-[#D8F200] sm:mt-5 sm:text-sm">
         Open →
       </p>
     </Link>
 
     <Link
       href="/dashboard/teams"
-      className="rounded-2xl border border-white/10 bg-white/10 p-5 transition hover:bg-white/15"
+      className="rounded-xl border border-white/10 bg-white/10 p-3 transition hover:bg-white/15 sm:rounded-2xl sm:p-5"
     >
-      <p className="text-lg font-bold">
+      <p className="text-base font-bold sm:text-lg">
         Teams
       </p>
 
-      <p className="mt-2 text-sm text-white/55">
+      <p className="mt-1 text-xs leading-5 text-white/55 sm:mt-2 sm:text-sm">
         Manage your teams.
       </p>
 
-      <p className="mt-5 text-sm font-semibold text-[#D8F200]">
+      <p className="mt-3 text-xs font-semibold text-[#D8F200] sm:mt-5 sm:text-sm">
         Open →
       </p>
     </Link>
@@ -828,9 +828,9 @@ export default function DashboardPage() {
 
 <Link
   href="/dashboard/resume"
-  className="group block rounded-3xl border border-[#D8F200]/25 bg-[#D8F200]/10 p-6 transition hover:bg-[#D8F200]/15 md:p-7"
+  className="group block rounded-2xl border border-[#D8F200]/25 bg-[#D8F200]/10 p-4 transition hover:bg-[#D8F200]/15 sm:rounded-3xl sm:p-5 md:p-7"
 >
-  <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+  <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center md:justify-between md:gap-5">
     <div>
       <div className="flex flex-wrap items-center gap-3">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
@@ -842,11 +842,11 @@ export default function DashboardPage() {
         </span>
       </div>
 
-      <h2 className="mt-4 text-2xl font-extrabold">
+      <h2 className="mt-3 text-xl font-extrabold sm:mt-4 sm:text-2xl">
         Turn your RADR into your athlete resumé.
       </h2>
 
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">
+      <p className="mt-2 max-w-2xl text-xs leading-5 text-white/60 sm:text-sm sm:leading-6">
         Preview how your profile, experience,
         achievements, highlights and development
         will come together in one professional
@@ -854,23 +854,23 @@ export default function DashboardPage() {
       </p>
     </div>
 
-    <span className="shrink-0 rounded-xl bg-[#D8F200] px-5 py-3 text-sm font-extrabold text-[#0B1F5C] transition group-hover:scale-[1.02]">
+    <span className="min-h-[44px] shrink-0 rounded-xl bg-[#D8F200] px-4 py-2.5 text-center text-sm font-extrabold text-[#0B1F5C] transition group-hover:scale-[1.02] md:px-5 md:py-3">
       Preview →
     </span>
   </div>
 </Link>
 
-<section className="rounded-3xl border border-white/10 bg-[#081642] p-6 md:p-7">
+<section className="rounded-2xl border border-white/10 bg-[#081642] p-4 sm:rounded-3xl sm:p-5 md:p-7">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
                 Keep Going
               </p>
 
-              <h2 className="mt-3 text-2xl font-bold">
+              <h2 className="mt-2 text-xl font-bold sm:mt-3 sm:text-2xl">
                 Your sporting journey is
                 always moving.
               </h2>
 
-              <p className="mt-3 max-w-3xl leading-7 text-white/65">
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-white/65 sm:mt-3 sm:text-base sm:leading-7">
                 Every achievement,
                 highlight, team and AD
                 update strengthens your
@@ -880,18 +880,18 @@ export default function DashboardPage() {
             </section>
           </div>
 
-          <aside className="space-y-6">
+          <aside className="grid gap-4 sm:grid-cols-2 sm:gap-5 xl:block xl:space-y-6">
             <Link
               href="/dashboard/development"
-              className="block rounded-3xl border border-[#D8F200]/20 bg-[#D8F200]/10 p-7 transition hover:bg-[#D8F200]/15"
+              className="block rounded-2xl border border-[#D8F200]/20 bg-[#D8F200]/10 p-4 transition hover:bg-[#D8F200]/15 sm:rounded-3xl sm:p-5 lg:p-7"
             >
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#D8F200]">
                 Athlete Development
               </p>
 
-              <div className="mt-4 flex items-end justify-between gap-4">
+              <div className="mt-3 flex items-end justify-between gap-3 sm:mt-4 sm:gap-4">
                 <div>
-                  <p className="text-6xl font-extrabold">
+                  <p className="text-4xl font-extrabold sm:text-5xl md:text-6xl">
                     {adIndex}
                   </p>
 
@@ -913,22 +913,22 @@ export default function DashboardPage() {
                 </p>
               </div>
 
-              <p className="mt-5 text-sm text-white/65">
+              <p className="mt-3 text-xs text-white/65 sm:mt-5 sm:text-sm">
                 Don&apos;t forget to update
                 your AD.
               </p>
 
-              <p className="mt-5 text-sm font-semibold text-[#D8F200]">
+              <p className="mt-3 text-xs font-semibold text-[#D8F200] sm:mt-5 sm:text-sm">
                 Open Athlete Development →
               </p>
             </Link>
 
-            <section className="rounded-3xl border border-white/10 bg-white/10 p-7 backdrop-blur">
+            <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 lg:p-7">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
                 Profile
               </p>
 
-              <div className="mt-5 space-y-4">
+              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:mt-5 lg:block lg:space-y-4">
                 <div>
                   <p className="text-xs text-white/45">
                     Sport
@@ -983,17 +983,17 @@ export default function DashboardPage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/10 p-7 backdrop-blur">
+            <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 lg:p-7">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
                 Career Summary
               </p>
 
-              <div className="mt-5 grid grid-cols-3 gap-3 text-center">
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center sm:mt-5 sm:gap-3">
                 <Link
                   href="/dashboard/experience"
-                  className="rounded-xl bg-[#081642] p-4 transition hover:bg-white/15"
+                  className="rounded-xl bg-[#081642] p-3 transition hover:bg-white/15 sm:p-4"
                 >
-                  <p className="text-2xl font-extrabold">
+                  <p className="text-xl font-extrabold sm:text-2xl">
                     {experienceCount}
                   </p>
 
@@ -1004,9 +1004,9 @@ export default function DashboardPage() {
 
                 <Link
                   href="/dashboard/achievements"
-                  className="rounded-xl bg-[#081642] p-4 transition hover:bg-white/15"
+                  className="rounded-xl bg-[#081642] p-3 transition hover:bg-white/15 sm:p-4"
                 >
-                  <p className="text-2xl font-extrabold">
+                  <p className="text-xl font-extrabold sm:text-2xl">
                     {achievementCount}
                   </p>
 
@@ -1017,9 +1017,9 @@ export default function DashboardPage() {
 
                 <Link
                   href="/dashboard/highlights"
-                  className="rounded-xl bg-[#081642] p-4 transition hover:bg-white/15"
+                  className="rounded-xl bg-[#081642] p-3 transition hover:bg-white/15 sm:p-4"
                 >
-                  <p className="text-2xl font-extrabold">
+                  <p className="text-xl font-extrabold sm:text-2xl">
                     {highlightCount}
                   </p>
 
