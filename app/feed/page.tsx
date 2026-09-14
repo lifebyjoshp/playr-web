@@ -322,24 +322,24 @@ const feedItems = (() => {
   return (
     <AppShell>
 
-      <section className="mx-auto max-w-[1280px] px-4 py-8 md:px-6">
-        <div className="mb-8">
+      <section className="mx-auto max-w-[1280px] px-3 py-5 sm:px-4 sm:py-6 md:px-6 md:py-8">
+        <div className="mb-5 md:mb-8">
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.25em] text-[#D8F200]">
             Home
           </p>
-          <h1 className="text-4xl font-extrabold md:text-5xl">
+          <h1 className="text-2xl font-extrabold sm:text-3xl md:text-5xl">
             Your {BRAND.feedLabel}
           </h1>
-          <p className="mt-3 max-w-3xl text-white/75">
+          <p className="mt-2 max-w-3xl text-sm leading-5 text-white/75 sm:text-base md:mt-3">
             Watchlist and followed Athletes appear first, followed by broader
             activity from the {BRAND.networkLabel}.
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,680px)_250px] lg:justify-center">
+        <div className="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,680px)_250px] lg:justify-center lg:gap-6">
 
-          <section className="space-y-5">
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur">
+          <section className="space-y-3 sm:space-y-4 lg:space-y-5">
+            <div className="rounded-xl border border-white/10 bg-white/10 p-3.5 backdrop-blur sm:rounded-2xl sm:p-4 lg:p-5">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-lg font-bold">For You</h2>
@@ -363,7 +363,7 @@ const feedItems = (() => {
                 Loading feed...
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-3 sm:space-y-4 lg:space-y-5">
                 {feedItems.length === 0 && (
                   <div className="rounded-2xl border border-white/10 bg-white/10 p-6 text-white/70 backdrop-blur">
                     No feed activity yet for these filters.
@@ -376,18 +376,18 @@ const feedItems = (() => {
                   return (
                     <div
                       key={item.id}
-                      className="rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur"
+                      className="rounded-xl border border-white/10 bg-white/10 p-3.5 backdrop-blur sm:rounded-2xl sm:p-4 lg:p-5"
                     >
-                      <div className="mb-4 flex items-start justify-between gap-4">
+                      <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4 sm:gap-4">
                         <div className="flex gap-3">
                           {item.profile.profile_photo_url ? (
                             <img
                               src={item.profile.profile_photo_url}
                               alt={item.profile.full_name || "Profile"}
-                              className="h-12 w-12 rounded-xl object-cover"
+                              className="h-10 w-10 shrink-0 rounded-lg object-cover sm:h-12 sm:w-12 sm:rounded-xl"
                             />
                           ) : (
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#081642] font-bold">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#081642] text-sm font-bold sm:h-12 sm:w-12 sm:rounded-xl sm:text-base">
                               {item.profile.full_name?.charAt(0) || "P"}
                             </div>
                           )}
@@ -425,13 +425,13 @@ const feedItems = (() => {
 
                       {item.type === "joined" && (
                         <div>
-                          <p className="text-white/80">
+                          <p className="text-sm leading-5 text-white/80 sm:text-base sm:leading-6">
                             Joined {BRAND.name} and is now discoverable to the
                             community.
                           </p>
 
-                          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                            <div className="rounded-2xl bg-[#081642] p-4">
+                          <div className="mt-3 grid grid-cols-3 gap-2 sm:mt-4 sm:gap-3">
+                            <div className="rounded-lg bg-[#081642] p-2.5 sm:rounded-2xl sm:p-4">
                               <div className="text-xs uppercase text-white/60">
                                 Sport
                               </div>
@@ -440,7 +440,7 @@ const feedItems = (() => {
                               </div>
                             </div>
 
-                            <div className="rounded-2xl bg-[#081642] p-4">
+                            <div className="rounded-lg bg-[#081642] p-2.5 sm:rounded-2xl sm:p-4">
                               <div className="text-xs uppercase text-white/60">
                                 Position
                               </div>
@@ -449,7 +449,7 @@ const feedItems = (() => {
                               </div>
                             </div>
 
-                            <div className="rounded-2xl bg-[#081642] p-4">
+                            <div className="rounded-lg bg-[#081642] p-2.5 sm:rounded-2xl sm:p-4">
                               <div className="text-xs uppercase text-white/60">
                                 Location
                               </div>
@@ -465,14 +465,14 @@ const feedItems = (() => {
 
                       {item.type === "achievement" && (
                         <div>
-                          <p className="text-white/80">
+                          <p className="text-sm leading-5 text-white/80 sm:text-base sm:leading-6">
                             Added a new achievement:
                             <span className="ml-1 font-bold">
                               {item.achievement.title}
                             </span>
                           </p>
 
-                          <div className="mt-4 rounded-2xl bg-[#081642] p-4">
+                          <div className="mt-4 rounded-lg bg-[#081642] p-2.5 sm:rounded-2xl sm:p-4">
                             <div className="text-lg font-bold">
                               {item.achievement.title}
                             </div>
@@ -499,14 +499,14 @@ const feedItems = (() => {
 
                       {item.type === "highlight" && (
                         <div>
-                          <p className="text-white/80">
+                          <p className="text-sm leading-5 text-white/80 sm:text-base sm:leading-6">
                             Added a new highlight:
                             <span className="ml-1 font-bold">
                               {item.highlight.title}
                             </span>
                           </p>
 
-                          <div className="mt-4 rounded-2xl bg-[#081642] p-4">
+                          <div className="mt-4 rounded-lg bg-[#081642] p-2.5 sm:rounded-2xl sm:p-4">
                             <div className="text-lg font-bold">
                               {item.highlight.title}
                             </div>
@@ -530,7 +530,7 @@ const feedItems = (() => {
                                     )!
                                   }
                                   title={item.highlight.title}
-                                  className="h-64 w-full"
+                                  className="aspect-video h-auto w-full sm:h-64 sm:aspect-auto"
                                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                   allowFullScreen
                                 />
@@ -559,7 +559,7 @@ const feedItems = (() => {
                         </div>
                       )}
 
-                      <div className="mt-5">
+                      <div className="mt-3 sm:mt-5">
                         <Link
                           href={`/p/${item.profile.public_slug}`}
                           className="text-sm font-semibold text-[#D8F200]"
@@ -574,8 +574,8 @@ const feedItems = (() => {
             )}
           </section>
 
-          <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur">
+          <aside className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:sticky lg:top-24 lg:block lg:space-y-6 lg:self-start">
+            <div className="rounded-xl border border-white/10 bg-white/10 p-3.5 backdrop-blur sm:rounded-2xl sm:p-4 lg:p-5">
               <h2 className="mb-4 text-lg font-bold">Feed Filters</h2>
 
               <div className="space-y-4">
@@ -584,7 +584,7 @@ const feedItems = (() => {
                   <select
                     value={sportFilter}
                     onChange={(e) => setSportFilter(e.target.value)}
-                    className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
+                    className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm outline-none sm:rounded-xl sm:px-4 sm:py-3"
                   >
                     <option value="">All Sports</option>
                     {sports.map((sport) => (
@@ -603,16 +603,16 @@ const feedItems = (() => {
                     value={locationFilter}
                     onChange={(e) => setLocationFilter(e.target.value)}
                     placeholder="e.g. NSW or Australia"
-                    className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
+                    className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm outline-none sm:rounded-xl sm:px-4 sm:py-3"
                   />
                 </div>
               </div>
 
-              <div className="mt-5 space-y-3">
+              <div className="mt-3 sm:mt-5 space-y-3">
                 <button
                   onClick={handleSavePreferences}
                   disabled={savingPreferences}
-                  className="w-full rounded-xl bg-[#D8F200] px-4 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
+                  className="min-h-[44px] w-full rounded-lg bg-[#D8F200] px-3 py-2.5 text-sm font-bold text-[#0B1F5C] disabled:opacity-60 sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
                 >
                   {savingPreferences ? "Saving..." : "Save Preferences"}
                 </button>
@@ -623,7 +623,7 @@ const feedItems = (() => {
                     setLocationFilter("");
                     setPreferenceMessage("");
                   }}
-                  className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 font-semibold text-white transition hover:bg-white/15"
+                  className="min-h-[44px] w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15 sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
                 >
                   Clear Filters
                 </button>
@@ -634,7 +634,7 @@ const feedItems = (() => {
               )}
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur">
+            <div className="rounded-xl border border-white/10 bg-white/10 p-3.5 backdrop-blur sm:rounded-2xl sm:p-4 lg:p-5">
               <h2 className="mb-4 text-lg font-bold">Feed Priority</h2>
               <div className="space-y-2 text-sm text-white/75">
                 <p>1. On Your RADR</p>
@@ -643,7 +643,7 @@ const feedItems = (() => {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur">
+            <div className="rounded-xl border border-white/10 bg-white/10 p-3.5 backdrop-blur sm:rounded-2xl sm:p-4 lg:p-5">
               <h2 className="mb-4 text-lg font-bold">Saved Preferences</h2>
               <div className="space-y-2 text-sm text-white/75">
                 <p>
