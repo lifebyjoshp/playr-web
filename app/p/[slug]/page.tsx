@@ -511,24 +511,24 @@ const freshness =
       .join(", ");
 
   return (
-    <main className="min-h-screen bg-[#0B1F5C] pb-12 text-white">
+    <main className="min-h-screen bg-[#0B1F5C] pb-20 text-white md:pb-12">
       <Navbar />
 
       <section className="relative">
-        <div className="h-52 bg-[linear-gradient(135deg,#114DFF,#0B1F5C)] md:h-64" />
+        <div className="h-36 bg-[linear-gradient(135deg,#114DFF,#0B1F5C)] sm:h-44 md:h-64" />
 
-        <div className="mx-auto max-w-6xl px-4 md:px-6">
-          <div className="-mt-14 rounded-3xl border border-white/10 bg-[#0B1F5C]/95 p-6 shadow-2xl backdrop-blur md:-mt-16 md:p-8">
-            <div className="flex flex-col gap-7 md:flex-row md:items-start md:justify-between">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+        <div className="mx-auto max-w-6xl px-3 sm:px-4 md:px-6">
+          <div className="-mt-10 rounded-2xl border border-white/10 bg-[#0B1F5C]/95 p-4 shadow-2xl backdrop-blur sm:-mt-12 sm:rounded-3xl sm:p-5 md:-mt-16 md:p-8">
+            <div className="flex flex-col gap-4 sm:gap-5 md:flex-row md:items-start md:justify-between md:gap-7">
+              <div className="flex flex-row items-start gap-3 sm:gap-5">
                 {profile.profile_photo_url ? (
                   <img
                     src={profile.profile_photo_url}
                     alt={profile.full_name || "Athlete"}
-                    className="h-28 w-28 shrink-0 rounded-2xl object-cover ring-4 ring-[#0B1F5C]"
+                    className="h-16 w-16 shrink-0 rounded-xl object-cover ring-2 ring-[#0B1F5C] sm:h-20 sm:w-20 sm:rounded-2xl sm:ring-4 md:h-28 md:w-28"
                   />
                 ) : (
-                  <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl bg-[#081642] text-4xl font-extrabold ring-4 ring-[#0B1F5C]">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-[#081642] text-2xl font-extrabold ring-2 ring-[#0B1F5C] sm:h-20 sm:w-20 sm:rounded-2xl sm:text-3xl sm:ring-4 md:h-28 md:w-28 md:text-4xl">
                     {displayName.charAt(0)}
                   </div>
                 )}
@@ -538,7 +538,7 @@ const freshness =
                     RADR Athlete
                   </p>
 
-                  <h1 className="mt-2 text-4xl font-extrabold md:text-5xl">
+                  <h1 className="mt-1 text-2xl font-extrabold sm:mt-2 sm:text-3xl md:text-5xl">
                     {displayName}
                   </h1>
 
@@ -549,12 +549,12 @@ const freshness =
                       </p>
                     )}
 
-                  <p className="mt-3 max-w-2xl text-lg text-white/75">
+                  <p className="mt-2 max-w-2xl text-sm leading-5 text-white/75 sm:text-base md:mt-3 md:text-lg">
                     {profile.headline ||
                       "Athlete profile"}
                   </p>
 
-                  <div className="mt-4 flex flex-wrap gap-x-3 gap-y-2 text-sm text-white/65">
+                  <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-white/65 sm:mt-3 sm:text-sm md:mt-4">
                     {profile.primary_sport && (
                       <span>
                         {profile.primary_sport}
@@ -583,7 +583,7 @@ const freshness =
                 </div>
               </div>
 
-              <div className="md:min-w-[220px]">
+              <div className="w-full md:min-w-[220px] md:w-auto">
                 {isOwner ? (
                   <Link
                     href="/dashboard/public-profile"
@@ -592,12 +592,12 @@ const freshness =
                     Edit Athlete
                   </Link>
                 ) : viewerId ? (
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 sm:rounded-2xl sm:p-4">
                     <p className="mb-3 text-sm font-semibold">
                       Interested in this athlete?
                     </p>
 
-                    <div className="grid gap-2">
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
                       <button
                         type="button"
                         onClick={handleToggleFollow}
@@ -636,22 +636,22 @@ const freshness =
               </div>
             </div>
 
-            <div className="mt-7 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-1.5 sm:mt-5 sm:gap-2 md:mt-7">
               {profile.primary_sport && (
-                <span className="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold">
+                <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm">
                   {profile.primary_sport}
                 </span>
               )}
 
               {profile.position && (
-                <span className="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold">
+                <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm">
                   {profile.position}
                 </span>
               )}
 
               {currentExperience?.teams
                 ?.display_name && (
-                <span className="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold">
+                <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm">
                   {
                     currentExperience.teams
                       .display_name
@@ -660,7 +660,7 @@ const freshness =
               )}
 
               {location && (
-                <span className="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold">
+                <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm">
                   {location}
                 </span>
               )}
@@ -669,7 +669,7 @@ const freshness =
                 (country) => (
                   <span
                     key={country}
-                    className="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold"
+                    className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm"
                   >
                     {country}
                   </span>
@@ -677,7 +677,7 @@ const freshness =
               )}
 
               {profile.school_name && (
-                <span className="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold">
+                <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm">
                   {profile.school_name}
                 </span>
               )}
@@ -686,32 +686,32 @@ const freshness =
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-10 md:px-6">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.6fr)]">
-          <div className="space-y-8">
-            <section className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur md:p-8">
+      <section className="mx-auto max-w-6xl px-3 py-5 sm:px-4 sm:py-7 md:px-6 md:py-10">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.6fr)] lg:gap-8">
+          <div className="space-y-4 sm:space-y-6 md:space-y-8">
+            <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 md:p-8">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
                 About
               </p>
 
-              <h2 className="mt-2 text-2xl font-bold">
+              <h2 className="mt-1 text-xl font-bold sm:mt-2 sm:text-2xl">
                 Athlete Story
               </h2>
 
-              <p className="mt-4 whitespace-pre-line leading-7 text-white/75">
+              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/75 sm:mt-4 sm:text-base sm:leading-7">
                 {profile.bio ||
                   "This athlete has not added a bio yet."}
               </p>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur md:p-8">
+            <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 md:p-8">
               <div className="flex items-end justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
                     Highlights
                   </p>
 
-                  <h2 className="mt-2 text-2xl font-bold">
+                  <h2 className="mt-1 text-xl font-bold sm:mt-2 sm:text-2xl">
                     Game Footage
                   </h2>
                 </div>
@@ -727,11 +727,11 @@ const freshness =
               </div>
 
               {highlights.length === 0 ? (
-                <div className="mt-6 rounded-2xl bg-[#081642] p-6 text-white/60">
+                <div className="mt-4 rounded-xl bg-[#081642] p-4 text-sm text-white/60 sm:mt-6 sm:rounded-2xl sm:p-6 sm:text-base">
                   No highlights added yet.
                 </div>
               ) : (
-                <div className="mt-6 grid gap-5 md:grid-cols-2">
+                <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-5 md:grid-cols-2">
                   {highlights.map((highlight) => {
                     const embedUrl = getEmbedUrl(
                       highlight.video_url,
@@ -741,7 +741,7 @@ const freshness =
                     return (
                       <div
                         key={highlight.id}
-                        className="overflow-hidden rounded-2xl bg-[#081642]"
+                        className="overflow-hidden rounded-xl bg-[#081642] sm:rounded-2xl"
                       >
                         <div className="aspect-video bg-black">
                           {embedUrl ? (
@@ -786,30 +786,30 @@ const freshness =
               )}
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur md:p-8">
+            <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 md:p-8">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
                 Achievements
               </p>
 
-              <h2 className="mt-2 text-2xl font-bold">
+              <h2 className="mt-1 text-xl font-bold sm:mt-2 sm:text-2xl">
                 Sporting Milestones
               </h2>
 
               {achievements.length === 0 ? (
-                <div className="mt-6 rounded-2xl bg-[#081642] p-6 text-white/60">
+                <div className="mt-4 rounded-xl bg-[#081642] p-4 text-sm text-white/60 sm:mt-6 sm:rounded-2xl sm:p-6 sm:text-base">
                   No achievements added yet.
                 </div>
               ) : (
-                <div className="mt-6 space-y-4">
+                <div className="mt-4 space-y-3 sm:mt-6 sm:space-y-4">
                   {achievements.map(
                     (achievement) => (
                       <div
                         key={achievement.id}
-                        className="rounded-2xl bg-[#081642] p-5"
+                        className="rounded-xl bg-[#081642] p-4 sm:rounded-2xl sm:p-5"
                       >
                         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                           <div>
-                            <h3 className="text-lg font-bold">
+                            <h3 className="text-base font-bold sm:text-lg">
                               {achievement.title}
                             </h3>
 
@@ -833,7 +833,7 @@ const freshness =
                         </div>
 
                         {achievement.description && (
-                          <p className="mt-3 text-sm leading-6 text-white/70">
+                          <p className="mt-2 text-sm leading-5 text-white/70 sm:mt-3 sm:leading-6">
                             {achievement.description}
                           </p>
                         )}
@@ -845,22 +845,22 @@ const freshness =
             </section>
 
             {previousExperience.length > 0 && (
-              <section className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur md:p-8">
+              <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 md:p-8">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
                   Experience
                 </p>
 
-                <h2 className="mt-2 text-2xl font-bold">
+                <h2 className="mt-1 text-xl font-bold sm:mt-2 sm:text-2xl">
                   Previous Teams
                 </h2>
 
-                <div className="mt-6 space-y-4">
+                <div className="mt-4 space-y-3 sm:mt-6 sm:space-y-4">
                   {previousExperience.map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-2xl bg-[#081642] p-5"
+                      className="rounded-xl bg-[#081642] p-4 sm:rounded-2xl sm:p-5"
                     >
-                      <h3 className="text-lg font-bold">
+                      <h3 className="text-base font-bold sm:text-lg">
                         {item.teams.display_name}
                       </h3>
 
@@ -892,9 +892,9 @@ const freshness =
             )}
           </div>
 
-          <aside className="space-y-6">
+          <aside className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:block lg:space-y-6">
             {currentExperience && (
-              <section className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur">
+              <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 lg:p-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
                   Current Team
                 </p>
@@ -928,14 +928,14 @@ const freshness =
               </section>
             )}
 
-            <section className="rounded-3xl border border-[#D8F200]/20 bg-[#D8F200]/10 p-6">
+            <section className="rounded-2xl border border-[#D8F200]/20 bg-[#D8F200]/10 p-4 sm:rounded-3xl sm:p-5 lg:p-6">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
                 Athlete Development
               </p>
 
               <div className="mt-4 flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-5xl font-extrabold">
+                  <p className="text-4xl font-extrabold sm:text-5xl">
                     {adIndex}
                   </p>
 
@@ -957,7 +957,7 @@ const freshness =
                 </p>
               </div>
 
-              <div className="mt-6 space-y-3">
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-6 sm:block sm:space-y-3">
                 {AD_TYPES.map((type) => {
                   const measurement =
                     latestByType.get(type);
@@ -965,7 +965,7 @@ const freshness =
                   return (
                     <div
                       key={type}
-                      className="flex items-center justify-between rounded-xl bg-[#081642]/70 px-4 py-3"
+                      className="flex items-center justify-between rounded-lg bg-[#081642]/70 px-3 py-2 sm:rounded-xl sm:px-4 sm:py-3"
                     >
                       <span className="text-sm text-white/65">
                         {type}
@@ -996,12 +996,12 @@ const freshness =
               profile.school_name ||
               profile.languages.length > 0 ||
               profile.dominant_side) && (
-              <section className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur">
+              <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 lg:p-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
                   Athlete Details
                 </p>
 
-                <div className="mt-5 space-y-4">
+                <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:mt-5 lg:block lg:space-y-4">
                   {profile.gender && (
                     <div>
                       <p className="text-xs text-white/45">
