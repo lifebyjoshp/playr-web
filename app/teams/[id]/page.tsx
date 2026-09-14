@@ -64,6 +64,7 @@ export default function PublicTeamPage() {
   const [memberships, setMemberships] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [canInvite, setCanInvite] = useState(false);
 
   useEffect(() => {
     const loadTeam = async () => {
@@ -138,6 +139,34 @@ export default function PublicTeamPage() {
         setMessage(`Roster could not be loaded: ${membershipError.message}`);
       } else {
         setMemberships((membershipData || []) as unknown as TeamMember[]);
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: currentProfile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (currentProfile) {
+          const { data: currentMembership } = await supabase
+            .from("player_team_memberships")
+            .select("id")
+            .eq("team_id", loadedTeam.id)
+            .eq("profile_id", currentProfile.id)
+            .eq("membership_status", "active")
+            .maybeSingle();
+
+          setCanInvite(Boolean(currentMembership));
+        } else {
+          setCanInvite(false);
+        }
+      } else {
+        setCanInvite(false);
       }
 
       setLoading(false);
@@ -281,8 +310,20 @@ export default function PublicTeamPage() {
                   </h2>
                 </div>
 
-                <div className="shrink-0 rounded-full border border-white/10 bg-[#081642] px-3 py-1.5 text-xs font-bold text-white/75">
-                  {memberships.length}
+                <div className="flex shrink-0 items-center gap-2">
+                  {canInvite && team && (
+                    <Link
+                      href={`/join/team/${team.id}`}
+                      className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-[#D8F200] px-3 py-2 text-xs font-extrabold text-[#0B1F5C] transition hover:brightness-95 sm:min-h-[44px] sm:px-4 sm:text-sm"
+                    >
+                      <span className="mr-1 text-base leading-none">+</span>
+                      Invite
+                    </Link>
+                  )}
+
+                  <div className="rounded-full border border-white/10 bg-[#081642] px-3 py-1.5 text-xs font-bold text-white/75">
+                    {memberships.length}
+                  </div>
                 </div>
               </div>
 
