@@ -13,6 +13,26 @@ function createSlug(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function getPendingTeamInvite() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem(
+    "radr_pending_team_invite"
+  );
+}
+
+function clearPendingTeamInvite() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(
+    "radr_pending_team_invite"
+  );
+}
+
 export default function NewManagedAthletePage() {
   const router = useRouter();
 
@@ -155,8 +175,75 @@ export default function NewManagedAthletePage() {
       return;
     }
 
+    const pendingTeamInvite = getPendingTeamInvite();
+
+    if (pendingTeamInvite) {
+      const { data: existingMembership, error: membershipCheckError } =
+        await supabase
+          .from("player_team_memberships")
+          .select("id, membership_status")
+          .eq("profile_id", athleteId)
+          .eq("team_id", pendingTeamInvite)
+          .maybeSingle();
+
+      if (membershipCheckError) {
+        setMessageType("error");
+        setMessage(
+          `Athlete created, but the team invitation could not be checked: ${membershipCheckError.message}`
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (existingMembership) {
+        const { error: updateMembershipError } =
+          await supabase
+            .from("player_team_memberships")
+            .update({
+              membership_status: "active",
+              membership_role: "athlete",
+              is_current: true,
+            })
+            .eq("id", existingMembership.id);
+
+        if (updateMembershipError) {
+          setMessageType("error");
+          setMessage(
+            `Athlete created, but could not be connected to the invited team: ${updateMembershipError.message}`
+          );
+          setLoading(false);
+          return;
+        }
+      } else {
+        const { error: membershipError } = await supabase
+          .from("player_team_memberships")
+          .insert({
+            profile_id: athleteId,
+            team_id: pendingTeamInvite,
+            membership_role: "athlete",
+            membership_status: "active",
+            is_current: true,
+          });
+
+        if (membershipError) {
+          setMessageType("error");
+          setMessage(
+            `Athlete created, but could not be connected to the invited team: ${membershipError.message}`
+          );
+          setLoading(false);
+          return;
+        }
+      }
+
+      clearPendingTeamInvite();
+    }
+
     setMessageType("success");
-    setMessage("Athlete created successfully.");
+    setMessage(
+      pendingTeamInvite
+        ? "Athlete created and connected to the invited team."
+        : "Athlete created successfully."
+    );
 
     router.push(
       `/dashboard/family/${athleteId}/profile`

@@ -30,6 +30,7 @@ type Profile = {
   dominant_side: string | null;
   profile_photo_url: string | null;
   contact_email: string | null;
+  guardian_required: boolean | null;
 };
 
 type Achievement = {
@@ -148,6 +149,7 @@ export default function PublicProfilePage({
 
   const [followLoading, setFollowLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [isParentManaged, setIsParentManaged] = useState(false);
 
   useEffect(() => {
     const loadPublicProfile = async () => {
@@ -188,7 +190,8 @@ export default function PublicProfilePage({
             weight_kg,
             dominant_side,
             profile_photo_url,
-            contact_email
+            contact_email,
+            guardian_required
           `
           )
           .eq("public_slug", slug)
@@ -214,6 +217,24 @@ export default function PublicProfilePage({
       };
 
       setProfile(loadedProfile);
+
+      let parentManaged = Boolean(
+        loadedProfile.guardian_required
+      );
+
+      const { data: guardianLink } = await supabase
+        .from("guardian_links")
+        .select("id")
+        .eq("athlete_profile_id", loadedProfile.id)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle();
+
+      if (guardianLink) {
+        parentManaged = true;
+      }
+
+      setIsParentManaged(parentManaged);
 
       if (user && user.id === loadedProfile.id) {
         setIsOwner(true);
@@ -534,9 +555,17 @@ const freshness =
                 )}
 
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#D8F200]">
-                    RADR Athlete
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#D8F200]">
+                      RADR Athlete
+                    </p>
+
+                    {isParentManaged && (
+                      <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/70">
+                        Parent managed
+                      </span>
+                    )}
+                  </div>
 
                   <h1 className="mt-1 text-2xl font-extrabold sm:mt-2 sm:text-3xl md:text-5xl">
                     {displayName}

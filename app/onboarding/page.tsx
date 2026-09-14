@@ -350,6 +350,79 @@ export default function OnboardingPage() {
     setSearchingTeams(false);
   };
 
+  const connectPendingTeamInvite = async (
+    pendingTeamInvite: string
+  ) => {
+    if (!profile) {
+      return false;
+    }
+
+    const { data: existingMembership, error: membershipCheckError } =
+      await supabase
+        .from("player_team_memberships")
+        .select("id, membership_status")
+        .eq("profile_id", profile.id)
+        .eq("team_id", pendingTeamInvite)
+        .maybeSingle();
+
+    if (membershipCheckError) {
+      console.error(
+        "Unable to check pending team invitation:",
+        membershipCheckError
+      );
+      return false;
+    }
+
+    if (existingMembership) {
+      const { error: updateError } = await supabase
+        .from("player_team_memberships")
+        .update({
+          membership_status: "active",
+          membership_role: "athlete",
+          is_current: true,
+          position: position.trim() || null,
+        })
+        .eq("id", existingMembership.id);
+
+      if (updateError) {
+        console.error(
+          "Unable to activate pending team invitation:",
+          updateError
+        );
+        return false;
+      }
+    } else {
+      const { error: insertError } = await supabase
+        .from("player_team_memberships")
+        .insert({
+          profile_id: profile.id,
+          team_id: pendingTeamInvite,
+          position: position.trim() || null,
+          membership_role: "athlete",
+          membership_status: "active",
+          is_current: true,
+        });
+
+      if (insertError) {
+        if (insertError.code !== "23505") {
+          console.error(
+            "Unable to connect pending team invitation:",
+            insertError
+          );
+          return false;
+        }
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(
+        "radr_pending_team_invite"
+      );
+    }
+
+    return true;
+  };
+
   const joinExistingTeam = async (team: TeamSearchResult) => {
     if (!profile) return;
 
@@ -590,6 +663,21 @@ export default function OnboardingPage() {
       getPendingTeamInvite();
 
     if (pendingTeamInvite) {
+      const connected =
+        await connectPendingTeamInvite(
+          pendingTeamInvite
+        );
+
+      if (connected) {
+        setTeamAdded(true);
+        setMessageType("success");
+        setMessage(
+          "Your RADR is live and your team has been connected."
+        );
+        setStep(5);
+        return;
+      }
+
       router.replace(
         `/join/team/${pendingTeamInvite}`
       );
