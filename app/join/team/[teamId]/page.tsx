@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { BRAND } from "../../../../lib/branding";
 
@@ -39,6 +39,8 @@ export default function JoinTeamPage() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const autoJoinAttempted = useRef(false);
 
   const teamName =
     team?.display_name ||
@@ -300,6 +302,34 @@ export default function JoinTeamPage() {
       setJoining(false);
     }
   };
+
+  useEffect(() => {
+    if (
+      loading ||
+      !team ||
+      !userId ||
+      joining ||
+      success ||
+      autoJoinAttempted.current
+    ) {
+      return;
+    }
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const pendingInvite = window.localStorage.getItem(
+      "radr_pending_team_invite"
+    );
+
+    if (pendingInvite !== teamId) {
+      return;
+    }
+
+    autoJoinAttempted.current = true;
+    void handleJoinTeam();
+  }, [loading, team, userId, joining, success, teamId]);
 
   if (loading) {
     return (

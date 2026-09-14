@@ -378,7 +378,7 @@ export default function OnboardingPage() {
         .from("player_team_memberships")
         .update({
           membership_status: "active",
-          membership_role: "player",
+          membership_role: "athlete",
           is_current: true,
           position: position.trim() || null,
         })
@@ -397,7 +397,7 @@ export default function OnboardingPage() {
           profile_id: profile.id,
           team_id: team.id,
           position: position.trim() || null,
-          membership_role: "player",
+          membership_role: "athlete",
           membership_status: "active",
           is_current: true,
         });
