@@ -238,24 +238,24 @@ export default function ExplorePage() {
   return (
     <AppShell>
 
-      <section className="mx-auto max-w-7xl px-6 py-16 md:px-10">
-        <div className="mb-10">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.25em] text-[#D8F200]">
+      <section className="mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-7 md:px-10 md:py-16">
+        <div className="mb-5 sm:mb-7 md:mb-10">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#D8F200] sm:mb-3 sm:text-sm sm:tracking-[0.25em]">
             Explore
           </p>
-          <h1 className="text-4xl font-extrabold md:text-5xl">
+          <h1 className="text-2xl font-extrabold sm:text-3xl md:text-5xl">
             Discover Athletes
           </h1>
-          <p className="mt-3 max-w-3xl text-white/75">
+          <p className="mt-2 max-w-3xl text-sm leading-5 text-white/75 sm:mt-3 sm:text-base sm:leading-normal">
             Browse public athlete profiles and discover talent by sport,
             position, location, association, competition, and club.
           </p>
         </div>
 
-        <div className="mb-8 rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-5 rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur sm:mb-6 sm:rounded-3xl sm:p-5 md:mb-8 md:p-6">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div>
-              <label className="mb-2 block text-sm font-medium">
+              <label className="mb-1.5 block text-xs font-medium sm:mb-2 sm:text-sm">
                 Search name, headline or team
               </label>
               <input
@@ -263,16 +263,16 @@ export default function ExplorePage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search athletes..."
-                className="w-full rounded-xl bg-[#081642] px-4 py-3 text-white placeholder:text-white/40 outline-none"
+                className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Sport</label>
+              <label className="mb-1.5 block text-xs font-medium sm:mb-2 sm:text-sm">Sport</label>
               <select
                 value={sport}
                 onChange={(e) => setSport(e.target.value)}
-                className="w-full rounded-xl bg-[#081642] px-4 py-3 text-white outline-none"
+                className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
               >
                 <option value="">All Sports</option>
                 {sports.map((item) => (
@@ -284,57 +284,57 @@ export default function ExplorePage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Position</label>
+              <label className="mb-1.5 block text-xs font-medium sm:mb-2 sm:text-sm">Position</label>
               <input
                 type="text"
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
                 placeholder="e.g. Point Guard"
-                className="w-full rounded-xl bg-[#081642] px-4 py-3 text-white placeholder:text-white/40 outline-none"
+                className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Location</label>
+              <label className="mb-1.5 block text-xs font-medium sm:mb-2 sm:text-sm">Location</label>
               <input
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="e.g. NSW or Australia"
-                className="w-full rounded-xl bg-[#081642] px-4 py-3 text-white placeholder:text-white/40 outline-none"
+                className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Association</label>
+              <label className="mb-1.5 block text-xs font-medium sm:mb-2 sm:text-sm">Association</label>
               <input
                 type="text"
                 value={association}
                 onChange={(e) => setAssociation(e.target.value)}
                 placeholder="e.g. Basketball NSW"
-                className="w-full rounded-xl bg-[#081642] px-4 py-3 text-white placeholder:text-white/40 outline-none"
+                className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Competition</label>
+              <label className="mb-1.5 block text-xs font-medium sm:mb-2 sm:text-sm">Competition</label>
               <input
                 type="text"
                 value={competition}
                 onChange={(e) => setCompetition(e.target.value)}
                 placeholder="e.g. Junior Premier League"
-                className="w-full rounded-xl bg-[#081642] px-4 py-3 text-white placeholder:text-white/40 outline-none"
+                className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Club</label>
+              <label className="mb-1.5 block text-xs font-medium sm:mb-2 sm:text-sm">Club</label>
               <input
                 type="text"
                 value={club}
                 onChange={(e) => setClub(e.target.value)}
                 placeholder="e.g. Newcastle Falcons"
-                className="w-full rounded-xl bg-[#081642] px-4 py-3 text-white placeholder:text-white/40 outline-none"
+                className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
               />
             </div>
 
@@ -349,7 +349,7 @@ export default function ExplorePage() {
                   setCompetition("");
                   setClub("");
                 }}
-                className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 font-semibold text-white transition hover:bg-white/15"
+                className="min-h-[44px] w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15 sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
               >
                 Clear Filters
               </button>
@@ -358,97 +358,97 @@ export default function ExplorePage() {
         </div>
 
         {loading ? (
-          <div className="rounded-3xl border border-white/10 bg-white/10 p-8 text-white/70 backdrop-blur">
+          <div className="rounded-2xl border border-white/10 bg-white/10 p-4 text-sm text-white/70 backdrop-blur sm:rounded-3xl sm:p-8 sm:text-base">
             Loading athlete profiles...
           </div>
         ) : (
           <>
-            <div className="mb-6 text-sm text-white/65">
+            <div className="mb-3 text-xs text-white/65 sm:mb-6 sm:text-sm">
               {filteredProfiles.length} profile
               {filteredProfiles.length === 1 ? "" : "s"} found
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
               {filteredProfiles.map((profile) => (
                 <Link
                   key={profile.id}
                   href={`/p/${profile.public_slug}`}
-                  className="group rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg backdrop-blur transition hover:-translate-y-1 hover:bg-white/15"
+                  className="group min-w-0 rounded-xl border border-white/10 bg-white/10 p-3 shadow-lg backdrop-blur transition hover:-translate-y-1 hover:bg-white/15 sm:rounded-2xl sm:p-4 md:rounded-3xl md:p-6"
                 >
-                  <div className="mb-4 inline-flex rounded-full bg-[#D8F200] px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#0B1F5C]">
+                  <div className="mb-2 inline-flex rounded-full bg-[#D8F200] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#0B1F5C] sm:mb-3 sm:px-3 sm:text-xs sm:tracking-[0.2em] md:mb-4">
                     Public Profile
                   </div>
 
-                  <h2 className="text-2xl font-extrabold">
+                  <h2 className="truncate text-base font-extrabold sm:text-xl md:text-2xl">
                     {profile.full_name || "Unnamed Athlete"}
                   </h2>
 
-                  <p className="mt-2 line-clamp-2 text-white/75">
+                  <p className="mt-1 line-clamp-2 text-xs leading-4 text-white/75 sm:mt-2 sm:text-sm sm:leading-5 md:text-base">
                     {profile.headline || "No headline added yet."}
                   </p>
 
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl bg-[#081642] p-4">
-                      <div className="text-xs uppercase text-white/60">
+                  <div className="mt-3 grid grid-cols-2 gap-1.5 sm:mt-4 sm:gap-3 md:mt-5">
+                    <div className="min-w-0 rounded-lg bg-[#081642] p-2 sm:rounded-xl sm:p-3 md:rounded-2xl md:p-4">
+                      <div className="truncate text-[9px] uppercase text-white/60 sm:text-[10px] md:text-xs">
                         Sport
                       </div>
-                      <div className="mt-2 font-bold">
+                      <div className="mt-1 truncate text-xs font-bold sm:text-sm md:mt-2 md:text-base">
                         {profile.primary_sport || "Not set"}
                       </div>
                     </div>
 
-                    <div className="rounded-2xl bg-[#081642] p-4">
-                      <div className="text-xs uppercase text-white/60">
+                    <div className="min-w-0 rounded-lg bg-[#081642] p-2 sm:rounded-xl sm:p-3 md:rounded-2xl md:p-4">
+                      <div className="truncate text-[9px] uppercase text-white/60 sm:text-[10px] md:text-xs">
                         Position
                       </div>
-                      <div className="mt-2 font-bold">
+                      <div className="mt-1 truncate text-xs font-bold sm:text-sm md:mt-2 md:text-base">
                         {profile.position || "Not set"}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-2xl bg-[#081642] p-4">
-                    <div className="text-xs uppercase text-white/60">
+                  <div className="mt-2 rounded-lg bg-[#081642] p-2 sm:mt-3 sm:rounded-xl sm:p-3 md:mt-4 md:rounded-2xl md:p-4">
+                    <div className="truncate text-[9px] uppercase text-white/60 sm:text-[10px] md:text-xs">
                       Location
                     </div>
-                    <div className="mt-2 font-bold">
+                    <div className="mt-1 truncate text-xs font-bold sm:text-sm md:mt-2 md:text-base">
                       {[profile.state, profile.country].filter(Boolean).join(", ") ||
                         "Not set"}
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-3">
-                    <div className="rounded-2xl bg-[#081642] p-4">
-                      <div className="text-xs uppercase text-white/60">
+                  <div className="mt-2 grid gap-1.5 sm:mt-3 sm:gap-3 md:mt-4">
+                    <div className="min-w-0 rounded-lg bg-[#081642] p-2 sm:rounded-xl sm:p-3 md:rounded-2xl md:p-4">
+                      <div className="truncate text-[9px] uppercase text-white/60 sm:text-[10px] md:text-xs">
                         Current Team
                       </div>
-                      <div className="mt-2 font-bold">
+                      <div className="mt-1 truncate text-xs font-bold sm:text-sm md:mt-2 md:text-base">
                         {profile.currentTeam || "Not set"}
                       </div>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl bg-[#081642] p-4">
-                        <div className="text-xs uppercase text-white/60">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-3">
+                      <div className="min-w-0 rounded-lg bg-[#081642] p-2 sm:rounded-xl sm:p-3 md:rounded-2xl md:p-4">
+                        <div className="truncate text-[9px] uppercase text-white/60 sm:text-[10px] md:text-xs">
                           Competition
                         </div>
-                        <div className="mt-2 text-sm font-medium">
+                        <div className="mt-1 truncate text-[11px] font-medium sm:text-xs md:mt-2 md:text-sm">
                           {profile.currentCompetition || "Not set"}
                         </div>
                       </div>
 
-                      <div className="rounded-2xl bg-[#081642] p-4">
-                        <div className="text-xs uppercase text-white/60">
+                      <div className="min-w-0 rounded-lg bg-[#081642] p-2 sm:rounded-xl sm:p-3 md:rounded-2xl md:p-4">
+                        <div className="truncate text-[9px] uppercase text-white/60 sm:text-[10px] md:text-xs">
                           Association
                         </div>
-                        <div className="mt-2 text-sm font-medium">
+                        <div className="mt-1 truncate text-[11px] font-medium sm:text-xs md:mt-2 md:text-sm">
                           {profile.currentAssociation || "Not set"}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-5 text-sm font-semibold text-[#D8F200]">
+                  <div className="mt-3 text-xs font-semibold text-[#D8F200] sm:mt-4 sm:text-sm md:mt-5">
                     View Profile →
                   </div>
                 </Link>
@@ -456,7 +456,7 @@ export default function ExplorePage() {
             </div>
 
             {filteredProfiles.length === 0 && (
-              <div className="mt-8 rounded-3xl border border-white/10 bg-white/10 p-8 text-center text-white/70 backdrop-blur">
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 text-center text-sm text-white/70 backdrop-blur sm:mt-8 sm:rounded-3xl sm:p-8 sm:text-base">
                 No public athlete profiles match your search yet.
               </div>
             )}
