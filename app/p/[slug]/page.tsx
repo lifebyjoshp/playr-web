@@ -58,6 +58,7 @@ type TeamMembership = {
   is_current: boolean;
   teams: {
     display_name: string;
+    slug: string | null;
     sport: string;
     association_name: string | null;
     competition_name: string;
@@ -291,6 +292,7 @@ export default function PublicProfilePage({
             is_current,
             teams (
               display_name,
+              slug,
               sport,
               association_name,
               competition_name
@@ -679,14 +681,26 @@ const freshness =
               )}
 
               {currentExperience?.teams
-                ?.display_name && (
-                <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm">
-                  {
-                    currentExperience.teams
-                      .display_name
-                  }
-                </span>
-              )}
+                ?.display_name &&
+                (currentExperience.teams.slug ? (
+                  <Link
+                    href={`/teams/${currentExperience.teams.slug}`}
+                    title={`View ${currentExperience.teams.display_name} team`}
+                    className="rounded-full border border-[#D8F200]/20 bg-white/10 px-2.5 py-1.5 text-xs font-semibold transition hover:border-[#D8F200]/50 hover:bg-white/15 hover:text-[#D8F200] focus:outline-none focus:ring-2 focus:ring-[#D8F200]/50 sm:px-3 sm:py-2 sm:text-sm"
+                  >
+                    {[
+                      profile.age_group,
+                      currentExperience.teams.competition_name,
+                      currentExperience.teams.display_name,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Link>
+                ) : (
+                  <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm">
+                    {currentExperience.teams.display_name}
+                  </span>
+                ))}
 
               {location && (
                 <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm">
