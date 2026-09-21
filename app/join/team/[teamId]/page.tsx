@@ -405,9 +405,9 @@ export default function JoinTeamPage() {
             </h1>
 
             <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-white/60">
-              Connect your athlete profile with your
-              teammates and add this team to your RADR
-              journey.
+              Your team is already on RADR. Join your teammates,
+              build your athlete profile and start creating your
+              sporting journey.
             </p>
           </div>
 
@@ -432,6 +432,30 @@ export default function JoinTeamPage() {
           </div>
 
           <div className="p-5 md:p-8">
+            {!userId && !success && (
+              <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#D8F200]">
+                  What is RADR?
+                </p>
+
+                <h3 className="mt-2 text-xl font-black text-white">
+                  Your sporting journey. One profile.
+                </h3>
+
+                <div className="mt-4 grid gap-3 text-sm text-white/65 sm:grid-cols-2">
+                  <p>✓ Build your athlete profile</p>
+                  <p>✓ Connect teams and achievements</p>
+                  <p>✓ Add highlights and development</p>
+                  <p>✓ Discover and follow athletes</p>
+                </div>
+
+                <p className="mt-4 border-t border-white/10 pt-4 text-xs leading-5 text-white/45">
+                  You&apos;re joining through a team invitation. Once your
+                  profile is created, RADR will connect you with {teamName}.
+                </p>
+              </div>
+            )}
+
             {error && (
               <div className="mb-5 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-4 text-sm leading-6 text-red-100">
                 {error}
@@ -479,7 +503,7 @@ export default function JoinTeamPage() {
                   onClick={rememberInvitation}
                   className="block w-full rounded-2xl bg-[#D8F200] px-6 py-4 text-center text-base font-black text-[#0B1F5C] transition hover:brightness-95"
                 >
-                  Create my RADR profile
+                  Join Team & Create My RADR
                 </Link>
 
                 <Link
@@ -489,7 +513,7 @@ export default function JoinTeamPage() {
                   onClick={rememberInvitation}
                   className="mt-3 block w-full rounded-2xl border border-white/15 bg-white/5 px-6 py-4 text-center text-sm font-bold text-white transition hover:bg-white/10"
                 >
-                  I already have RADR
+                  Already on RADR? Log in to join
                 </Link>
 
                 <p className="mt-4 text-center text-xs leading-5 text-white/40">
