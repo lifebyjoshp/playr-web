@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "../../../components/Navbar";
+import AthleteShareCard from "../../../components/AthleteShareCard";
 import { BRAND } from "../../../lib/branding";
 import { supabase } from "../../../lib/supabase";
 
@@ -31,6 +32,8 @@ type Profile = {
   profile_photo_url: string | null;
   contact_email: string | null;
   guardian_required: boolean | null;
+  is_founding_athlete: boolean | null;
+  founding_athlete_number: number | null;
 };
 
 type Achievement = {
@@ -150,7 +153,7 @@ export default function PublicProfilePage({
 
   const [followLoading, setFollowLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [isParentManaged, setIsParentManaged] = useState(false);
 
   useEffect(() => {
@@ -193,7 +196,9 @@ export default function PublicProfilePage({
             dominant_side,
             profile_photo_url,
             contact_email,
-            guardian_required
+            guardian_required,
+            is_founding_athlete,
+            founding_athlete_number
           `
           )
           .eq("public_slug", slug)
@@ -490,36 +495,6 @@ const freshness =
     setSaveLoading(false);
   };
 
-  const handleShareProfile = async () => {
-    if (!profile || typeof window === "undefined") return;
-
-    const shareUrl = window.location.href;
-    const shareText = `I'm on RADR. Check out ${displayName}'s athlete profile and follow the sporting journey.`;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `${displayName} on RADR`,
-          text: shareText,
-          url: shareUrl,
-        });
-
-        return;
-      }
-
-      await navigator.clipboard.writeText(shareUrl);
-      setShareCopied(true);
-
-      window.setTimeout(() => {
-        setShareCopied(false);
-      }, 2000);
-    } catch (error: any) {
-      if (error?.name !== "AbortError") {
-        console.error("Unable to share RADR profile:", error);
-      }
-    }
-  };
-
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0B1F5C] text-white">
@@ -698,10 +673,10 @@ const freshness =
 
                 <button
                   type="button"
-                  onClick={handleShareProfile}
+                  onClick={() => setShareOpen(true)}
                   className="mt-2 w-full rounded-xl border border-[#D8F200]/30 bg-[#D8F200]/10 px-5 py-3 text-sm font-bold text-[#D8F200] transition hover:bg-[#D8F200]/15"
                 >
-                  {shareCopied ? "Profile link copied!" : "Share Profile"}
+                  Share to Social
                 </button>
               </div>
             </div>
@@ -1149,6 +1124,25 @@ const freshness =
           </aside>
         </div>
       </section>
+
+      {shareOpen && (
+        <AthleteShareCard
+          athleteName={displayName}
+          profilePhotoUrl={profile.profile_photo_url}
+          sport={profile.primary_sport}
+          teamName={currentExperience?.teams?.display_name || null}
+          isFoundingAthlete={Boolean(profile.is_founding_athlete)}
+          foundingAthleteNumber={profile.founding_athlete_number}
+          profileUrl={
+            typeof window !== "undefined"
+              ? window.location.href
+              : profile.public_slug
+                ? `https://radr.au/p/${profile.public_slug}`
+                : "https://radr.au"
+          }
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </main>
   );
 }
