@@ -150,6 +150,7 @@ export default function PublicProfilePage({
 
   const [followLoading, setFollowLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const [isParentManaged, setIsParentManaged] = useState(false);
 
   useEffect(() => {
@@ -489,6 +490,36 @@ const freshness =
     setSaveLoading(false);
   };
 
+  const handleShareProfile = async () => {
+    if (!profile || typeof window === "undefined") return;
+
+    const shareUrl = window.location.href;
+    const shareText = `I'm on RADR. Check out ${displayName}'s athlete profile and follow the sporting journey.`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${displayName} on RADR`,
+          text: shareText,
+          url: shareUrl,
+        });
+
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+
+      window.setTimeout(() => {
+        setShareCopied(false);
+      }, 2000);
+    } catch (error: any) {
+      if (error?.name !== "AbortError") {
+        console.error("Unable to share RADR profile:", error);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0B1F5C] text-white">
@@ -664,6 +695,14 @@ const freshness =
                     Log in to Follow
                   </Link>
                 )}
+
+                <button
+                  type="button"
+                  onClick={handleShareProfile}
+                  className="mt-2 w-full rounded-xl border border-[#D8F200]/30 bg-[#D8F200]/10 px-5 py-3 text-sm font-bold text-[#D8F200] transition hover:bg-[#D8F200]/15"
+                >
+                  {shareCopied ? "Profile link copied!" : "Share Profile"}
+                </button>
               </div>
             </div>
 
