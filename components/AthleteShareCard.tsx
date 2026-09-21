@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { toBlob } from "html-to-image";
 
 type AthleteShareCardProps = {
   athleteName: string;
@@ -29,6 +28,72 @@ function safeFileName(name: string) {
   );
 }
 
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Unable to load athlete photo."));
+    image.src = src;
+  });
+}
+
+function drawCoverImage(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+) {
+  const imageRatio = image.width / image.height;
+  const boxRatio = width / height;
+
+  let sourceX = 0;
+  let sourceY = 0;
+  let sourceWidth = image.width;
+  let sourceHeight = image.height;
+
+  if (imageRatio > boxRatio) {
+    sourceWidth = image.height * boxRatio;
+    sourceX = (image.width - sourceWidth) / 2;
+  } else {
+    sourceHeight = image.width / boxRatio;
+    sourceY = (image.height - sourceHeight) / 2;
+  }
+
+  ctx.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    x,
+    y,
+    width,
+    height
+  );
+}
+
+function roundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
 export default function AthleteShareCard({
   athleteName,
   profilePhotoUrl,
@@ -44,52 +109,8 @@ export default function AthleteShareCard({
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
-  const [embeddedPhotoUrl, setEmbeddedPhotoUrl] = useState<string | null>(null);
-  const [photoReady, setPhotoReady] = useState(!profilePhotoUrl);
 
   const number = foundingNumber(foundingAthleteNumber);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const preparePhoto = async () => {
-      if (!profilePhotoUrl) {
-        setEmbeddedPhotoUrl(null);
-        setPhotoReady(true);
-        return;
-      }
-
-      setPhotoReady(false);
-
-      try {
-        const response = await fetch(profilePhotoUrl);
-        if (!response.ok) throw new Error(`Photo request failed: ${response.status}`);
-
-        const blob = await response.blob();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () =>
-            typeof reader.result === "string"
-              ? resolve(reader.result)
-              : reject(new Error("Unable to embed photo."));
-          reader.onerror = () => reject(new Error("Unable to read photo."));
-          reader.readAsDataURL(blob);
-        });
-
-        if (!cancelled) setEmbeddedPhotoUrl(dataUrl);
-      } catch (photoError) {
-        console.error("Unable to embed RADR profile photo:", photoError);
-        if (!cancelled) setEmbeddedPhotoUrl(profilePhotoUrl);
-      } finally {
-        if (!cancelled) setPhotoReady(true);
-      }
-    };
-
-    preparePhoto();
-    return () => {
-      cancelled = true;
-    };
-  }, [profilePhotoUrl]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -108,23 +129,177 @@ export default function AthleteShareCard({
   }, [onClose]);
 
   const createStoryFile = async () => {
-    if (!storyRef.current) {
-      throw new Error("Story preview is not ready.");
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1920;
+
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+      throw new Error("RADR could not create the story canvas.");
     }
 
-    if (!photoReady) {
-      throw new Error("Profile photo is still preparing.");
+    const width = canvas.width;
+    const height = canvas.height;
+
+    const background = ctx.createLinearGradient(0, 0, width, height);
+    background.addColorStop(0, "#0B1F5C");
+    background.addColorStop(0.58, "#081642");
+    background.addColorStop(1, "#050D27");
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, width, height);
+
+    const glow = ctx.createRadialGradient(870, 250, 20, 870, 250, 520);
+    glow.addColorStop(0, "rgba(17,77,255,0.85)");
+    glow.addColorStop(1, "rgba(17,77,255,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, 850);
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "900 58px Arial, sans-serif";
+    ctx.fillText("RADR", 76, 105);
+
+    roundedRect(ctx, 815, 57, 190, 62, 31);
+    ctx.fillStyle = "rgba(216,242,0,0.10)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(216,242,0,0.35)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = "#D8F200";
+    ctx.font = "700 22px Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("ATHLETE", 910, 97);
+    ctx.textAlign = "left";
+
+    ctx.fillStyle = "#D8F200";
+    ctx.font = "700 30px Arial, sans-serif";
+    ctx.fillText("I'M ON THE", 76, 225);
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "900 100px Arial, sans-serif";
+    ctx.fillText("RADR.", 76, 325);
+
+    const photoX = 76;
+    const photoY = 390;
+    const photoW = 928;
+    const photoH = 1040;
+    const photoRadius = 54;
+
+    ctx.save();
+    roundedRect(ctx, photoX, photoY, photoW, photoH, photoRadius);
+    ctx.clip();
+
+    ctx.fillStyle = "#081642";
+    ctx.fillRect(photoX, photoY, photoW, photoH);
+
+    if (profilePhotoUrl) {
+      const athleteImage = await loadImage(profilePhotoUrl);
+      drawCoverImage(ctx, athleteImage, photoX, photoY, photoW, photoH);
+    } else {
+      const fallback = ctx.createLinearGradient(
+        photoX,
+        photoY,
+        photoX + photoW,
+        photoY + photoH
+      );
+      fallback.addColorStop(0, "#114DFF");
+      fallback.addColorStop(1, "#081642");
+      ctx.fillStyle = fallback;
+      ctx.fillRect(photoX, photoY, photoW, photoH);
+
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.font = "900 280px Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        athleteName.charAt(0).toUpperCase(),
+        photoX + photoW / 2,
+        photoY + photoH / 2
+      );
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
     }
 
-    const blob = await toBlob(storyRef.current, {
-      cacheBust: true,
-      pixelRatio: 3,
-      backgroundColor: "#0B1F5C",
+    const photoOverlay = ctx.createLinearGradient(
+      0,
+      photoY + photoH * 0.55,
+      0,
+      photoY + photoH
+    );
+    photoOverlay.addColorStop(0, "rgba(5,13,39,0)");
+    photoOverlay.addColorStop(0.45, "rgba(5,13,39,0.58)");
+    photoOverlay.addColorStop(1, "rgba(5,13,39,0.96)");
+    ctx.fillStyle = photoOverlay;
+    ctx.fillRect(photoX, photoY, photoW, photoH);
+
+    ctx.restore();
+
+    ctx.strokeStyle = "rgba(255,255,255,0.16)";
+    ctx.lineWidth = 2;
+    roundedRect(ctx, photoX, photoY, photoW, photoH, photoRadius);
+    ctx.stroke();
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "900 68px Arial, sans-serif";
+    const displayName = athleteName.toUpperCase();
+    ctx.fillText(displayName, 125, 1305, 830);
+
+    const sportTeam = [sport, teamName].filter(Boolean).join(" • ").toUpperCase();
+    if (sportTeam) {
+      ctx.fillStyle = "rgba(255,255,255,0.76)";
+      ctx.font = "600 28px Arial, sans-serif";
+      ctx.fillText(sportTeam, 125, 1365, 830);
+    }
+
+    let footerStart = 1505;
+
+    if (isFoundingAthlete && number) {
+      roundedRect(ctx, 76, 1490, 928, 185, 34);
+      ctx.fillStyle = "rgba(216,242,0,0.10)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(216,242,0,0.38)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = "#D8F200";
+      ctx.font = "700 25px Arial, sans-serif";
+      ctx.fillText("RADR FOUNDING ATHLETE", 120, 1550);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "900 62px Arial, sans-serif";
+      ctx.fillText(`#${number}`, 120, 1630);
+
+      footerStart = 1740;
+    }
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "900 35px Arial, sans-serif";
+    ctx.fillText("ARE YOU ON THE RADR?", 76, footerStart);
+
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.font = "600 22px Arial, sans-serif";
+    ctx.fillText("Build your sporting journey.", 76, footerStart + 42);
+
+    ctx.fillStyle = "#D8F200";
+    ctx.font = "900 34px Arial, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText("radr.au", 1004, footerStart + 12);
+    ctx.textAlign = "left";
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (result) => {
+          if (result) {
+            resolve(result);
+          } else {
+            reject(new Error("RADR could not create the story image."));
+          }
+        },
+        "image/png",
+        1
+      );
     });
-
-    if (!blob) {
-      throw new Error("RADR could not create the story image.");
-    }
 
     return new File(
       [blob],
@@ -292,7 +467,7 @@ export default function AthleteShareCard({
                 <div className="relative mt-[7%] aspect-[4/5] overflow-hidden rounded-[6%] border border-white/15 bg-[#081642] shadow-2xl">
                   {profilePhotoUrl ? (
                     <img
-                      src={embeddedPhotoUrl || profilePhotoUrl}
+                      src={profilePhotoUrl}
                       alt=""
                       className="h-full w-full object-cover"
                     />
@@ -372,23 +547,19 @@ export default function AthleteShareCard({
             <button
               type="button"
               onClick={handleShare}
-              disabled={generating || !photoReady}
+              disabled={generating}
               className="rounded-2xl bg-[#D8F200] px-5 py-4 text-sm font-black text-[#0B1F5C] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {!photoReady
-                ? "Preparing Photo..."
-                : generating
-                  ? "Creating Story..."
-                  : "Share Story"}
+              {generating ? "Creating Story..." : "Share Story"}
             </button>
 
             <button
               type="button"
               onClick={handleSave}
-              disabled={generating || !photoReady}
+              disabled={generating}
               className="rounded-2xl border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {!photoReady ? "Preparing Photo..." : "Save Story Image"}
+              Save Story Image
             </button>
 
             <button
