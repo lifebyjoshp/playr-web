@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
@@ -38,6 +39,7 @@ export default function SignupPage() {
     useState<Attribution>(EMPTY_ATTRIBUTION);
 
   const [loading, setLoading] = useState(false);
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<
@@ -118,6 +120,14 @@ export default function SignupPage() {
       setMessageType("error");
       setMessage(
         "Please enter your email."
+      );
+      return;
+    }
+
+    if (!acceptedLegal) {
+      setMessageType("error");
+      setMessage(
+        "Please agree to the Terms of Use and acknowledge the Privacy Policy."
       );
       return;
     }
@@ -519,6 +529,37 @@ export default function SignupPage() {
                 </p>
               </div>
 
+              <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-[#081642] p-4 text-sm text-white/65">
+                <input
+                  type="checkbox"
+                  checked={acceptedLegal}
+                  onChange={(event) =>
+                    setAcceptedLegal(event.target.checked)
+                  }
+                  className="mt-1 h-4 w-4 shrink-0 accent-[#D8F200]"
+                  required
+                />
+                <span>
+                  I agree to the{" "}
+                  <Link
+                    href="/terms"
+                    target="_blank"
+                    className="font-semibold text-[#D8F200] hover:underline"
+                  >
+                    Terms of Use
+                  </Link>{" "}
+                  and acknowledge the{" "}
+                  <Link
+                    href="/privacy"
+                    target="_blank"
+                    className="font-semibold text-[#D8F200] hover:underline"
+                  >
+                    Privacy Policy
+                  </Link>
+                  .
+                </span>
+              </label>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -546,7 +587,17 @@ export default function SignupPage() {
               </div>
             )}
 
-            <p className="mt-6 text-center text-sm text-white/50">
+            <div className="mt-6 flex items-center justify-center gap-4 text-xs text-white/40">
+              <Link href="/terms" className="hover:text-white">
+                Terms of Use
+              </Link>
+              <span>•</span>
+              <Link href="/privacy" className="hover:text-white">
+                Privacy Policy
+              </Link>
+            </div>
+
+            <p className="mt-4 text-center text-sm text-white/50">
               Already on RADR?{" "}
               <a
                 href="/login"

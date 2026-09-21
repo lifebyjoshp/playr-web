@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import AppShell from "../../../../components/AppShell";
@@ -43,6 +44,8 @@ export default function NewManagedAthletePage() {
   const [gender, setGender] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [guardianAuthorityConfirmed, setGuardianAuthorityConfirmed] =
+    useState(false);
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<
@@ -63,6 +66,14 @@ export default function NewManagedAthletePage() {
     if (!dateOfBirth) {
       setMessageType("error");
       setMessage("Date of birth is required.");
+      return;
+    }
+
+    if (!guardianAuthorityConfirmed) {
+      setMessageType("error");
+      setMessage(
+        "Please confirm that you have authority to create and manage this athlete profile."
+      );
       return;
     }
 
@@ -385,6 +396,32 @@ export default function NewManagedAthletePage() {
               management permissions.
             </p>
           </div>
+
+          <label className="flex items-start gap-3 rounded-2xl border border-[#D8F200]/20 bg-[#D8F200]/10 p-5 text-sm text-white/75">
+            <input
+              type="checkbox"
+              checked={guardianAuthorityConfirmed}
+              onChange={(event) =>
+                setGuardianAuthorityConfirmed(event.target.checked)
+              }
+              className="mt-1 h-4 w-4 shrink-0 accent-[#D8F200]"
+              required
+            />
+            <span>
+              I confirm that I am the athlete&apos;s parent, legal guardian,
+              or otherwise have authority to create and manage this athlete
+              profile. I understand that information I choose to make public
+              may be visible to other people. See the{" "}
+              <Link href="/terms" target="_blank" className="font-semibold text-[#D8F200] hover:underline">
+                Terms of Use
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" target="_blank" className="font-semibold text-[#D8F200] hover:underline">
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </label>
 
           <button
             type="submit"
