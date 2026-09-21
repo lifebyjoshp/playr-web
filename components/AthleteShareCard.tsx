@@ -44,8 +44,52 @@ export default function AthleteShareCard({
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
+  const [embeddedPhotoUrl, setEmbeddedPhotoUrl] = useState<string | null>(null);
+  const [photoReady, setPhotoReady] = useState(!profilePhotoUrl);
 
   const number = foundingNumber(foundingAthleteNumber);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const preparePhoto = async () => {
+      if (!profilePhotoUrl) {
+        setEmbeddedPhotoUrl(null);
+        setPhotoReady(true);
+        return;
+      }
+
+      setPhotoReady(false);
+
+      try {
+        const response = await fetch(profilePhotoUrl);
+        if (!response.ok) throw new Error(`Photo request failed: ${response.status}`);
+
+        const blob = await response.blob();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () =>
+            typeof reader.result === "string"
+              ? resolve(reader.result)
+              : reject(new Error("Unable to embed photo."));
+          reader.onerror = () => reject(new Error("Unable to read photo."));
+          reader.readAsDataURL(blob);
+        });
+
+        if (!cancelled) setEmbeddedPhotoUrl(dataUrl);
+      } catch (photoError) {
+        console.error("Unable to embed RADR profile photo:", photoError);
+        if (!cancelled) setEmbeddedPhotoUrl(profilePhotoUrl);
+      } finally {
+        if (!cancelled) setPhotoReady(true);
+      }
+    };
+
+    preparePhoto();
+    return () => {
+      cancelled = true;
+    };
+  }, [profilePhotoUrl]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -66,6 +110,10 @@ export default function AthleteShareCard({
   const createStoryFile = async () => {
     if (!storyRef.current) {
       throw new Error("Story preview is not ready.");
+    }
+
+    if (!photoReady) {
+      throw new Error("Profile photo is still preparing.");
     }
 
     const blob = await toBlob(storyRef.current, {
@@ -244,9 +292,8 @@ export default function AthleteShareCard({
                 <div className="relative mt-[7%] aspect-[4/5] overflow-hidden rounded-[6%] border border-white/15 bg-[#081642] shadow-2xl">
                   {profilePhotoUrl ? (
                     <img
-                      src={profilePhotoUrl}
+                      src={embeddedPhotoUrl || profilePhotoUrl}
                       alt=""
-                      crossOrigin="anonymous"
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -325,19 +372,23 @@ export default function AthleteShareCard({
             <button
               type="button"
               onClick={handleShare}
-              disabled={generating}
+              disabled={generating || !photoReady}
               className="rounded-2xl bg-[#D8F200] px-5 py-4 text-sm font-black text-[#0B1F5C] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {generating ? "Creating Story..." : "Share Story"}
+              {!photoReady
+                ? "Preparing Photo..."
+                : generating
+                  ? "Creating Story..."
+                  : "Share Story"}
             </button>
 
             <button
               type="button"
               onClick={handleSave}
-              disabled={generating}
+              disabled={generating || !photoReady}
               className="rounded-2xl border border-white/15 bg-white/5 px-5 py-4 text-sm font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Save Story Image
+              {!photoReady ? "Preparing Photo..." : "Save Story Image"}
             </button>
 
             <button
