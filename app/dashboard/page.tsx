@@ -983,6 +983,31 @@ export default function DashboardPage() {
               </div>
             </section>
 
+                        <Link
+              href="/settings"
+              className="group block rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur transition hover:bg-white/15 sm:rounded-3xl sm:p-5 lg:p-7"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
+                    Account
+                  </p>
+
+                  <p className="mt-2 text-lg font-bold">
+                    Account Settings
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-white/55 sm:text-sm">
+                    Manage your email, password and RADR account.
+                  </p>
+                </div>
+
+                <span className="shrink-0 text-xl font-bold text-[#D8F200] transition group-hover:translate-x-1">
+                  →
+                </span>
+              </div>
+            </Link>
+
             <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 lg:p-7">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
                 Career Summary
