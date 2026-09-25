@@ -60,6 +60,9 @@ export default function FamilyManagedAthletePage() {
   const [country, setCountry] = useState("");
   const [schoolName, setSchoolName] = useState("");
 
+  const [profilePhotoUrl, setProfilePhotoUrl] =
+    useState("");
+
   const [eligibleCountries, setEligibleCountries] = useState<
     string[]
   >([]);
@@ -73,6 +76,8 @@ export default function FamilyManagedAthletePage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] =
+    useState(false);
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<
@@ -199,6 +204,10 @@ export default function FamilyManagedAthletePage() {
       setCountry(loadedProfile.country || "");
       setSchoolName(loadedProfile.school_name || "");
 
+      setProfilePhotoUrl(
+        loadedProfile.profile_photo_url || ""
+      );
+
       setEligibleCountries(
         cleanList(loadedProfile.eligible_countries)
       );
@@ -212,6 +221,117 @@ export default function FamilyManagedAthletePage() {
       void loadAthlete();
     }
   }, [athleteId]);
+
+  const handleImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!guardianLink?.can_edit_profile) {
+      setMessageType("error");
+      setMessage(
+        "You do not have permission to edit this athlete."
+      );
+      return;
+    }
+
+    setUploadingImage(true);
+    setMessageType("info");
+    setMessage("Uploading athlete photo...");
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setMessageType("error");
+      setMessage("You must be logged in.");
+      setUploadingImage(false);
+      return;
+    }
+
+    /*
+     * The authenticated parent remains the Storage uploader.
+     *
+     * The athleteId is also included in the filename so the
+     * image is easy to identify as belonging to the managed
+     * athlete without changing the existing Storage bucket.
+     */
+    const fileExt =
+      file.name.split(".").pop()?.toLowerCase() || "jpg";
+
+    const fileName =
+      `${user.id}-${athleteId}-${Date.now()}.${fileExt}`;
+
+    const filePath = `profiles/${fileName}`;
+
+    const { error: uploadError } =
+      await supabase.storage
+        .from("profile-photos")
+        .upload(filePath, file);
+
+    if (uploadError) {
+      setMessageType("error");
+      setMessage(
+        `Upload failed: ${uploadError.message}`
+      );
+      setUploadingImage(false);
+      return;
+    }
+
+    const { data } = supabase.storage
+      .from("profile-photos")
+      .getPublicUrl(filePath);
+
+    const publicUrl = data.publicUrl;
+
+    /*
+     * Important:
+     * update the managed ATHLETE profile, not the parent's.
+     */
+    const { error: profileUpdateError } =
+      await supabase
+        .from("profiles")
+        .update({
+          profile_photo_url: publicUrl,
+        })
+        .eq("id", athleteId);
+
+    if (profileUpdateError) {
+      setMessageType("error");
+      setMessage(
+        `Image uploaded but athlete profile update failed: ${profileUpdateError.message}`
+      );
+      setUploadingImage(false);
+      return;
+    }
+
+    setProfilePhotoUrl(publicUrl);
+
+    setProfile((current) =>
+      current
+        ? {
+            ...current,
+            profile_photo_url: publicUrl,
+          }
+        : current
+    );
+
+    setMessageType("success");
+    setMessage(
+      "Athlete profile photo uploaded successfully."
+    );
+
+    setUploadingImage(false);
+
+    /*
+     * Allows the same file to be selected again later.
+     */
+    event.target.value = "";
+  };
 
   const addEligibleCountry = () => {
     const value = newEligibleCountry.trim();
@@ -287,6 +407,7 @@ export default function FamilyManagedAthletePage() {
         eligible_countries:
           cleanList(eligibleCountries),
         languages: cleanList(languages),
+        profile_photo_url: profilePhotoUrl || null,
       })
       .eq("id", athleteId);
 
@@ -348,7 +469,8 @@ export default function FamilyManagedAthletePage() {
           </h1>
 
           <p className="mt-3 text-white/70">
-            You are editing this athlete using approved family access.
+            You are editing this athlete using approved
+            family access.
           </p>
         </div>
 
@@ -367,29 +489,63 @@ export default function FamilyManagedAthletePage() {
         )}
 
         <div className="space-y-6 rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur">
-          <div className="flex items-center gap-4 rounded-2xl bg-[#081642] p-5">
-            {profile.profile_photo_url ? (
-              <img
-                src={profile.profile_photo_url}
-                alt={profile.full_name || "Athlete"}
-                className="h-20 w-20 rounded-xl object-cover"
-              />
-            ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-white/10 text-2xl font-bold">
-                {(preferredName || fullName || "A").charAt(0)}
+
+          {/* PROFILE PHOTO */}
+          <div className="rounded-2xl bg-[#081642] p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
+              Athlete photo
+            </p>
+
+            <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center">
+              {profilePhotoUrl ? (
+                <img
+                  src={profilePhotoUrl}
+                  alt={
+                    fullName ||
+                    "Athlete profile"
+                  }
+                  className="h-28 w-28 shrink-0 rounded-2xl object-cover"
+                />
+              ) : (
+                <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-3xl font-bold">
+                  {(preferredName ||
+                    fullName ||
+                    "A"
+                  ).charAt(0)}
+                </div>
+              )}
+
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-bold">
+                  {preferredName ||
+                    fullName ||
+                    "Unnamed Athlete"}
+                </h2>
+
+                <p className="mt-1 text-sm text-white/55">
+                  Family-managed athlete
+                </p>
+
+                <label className="mt-4 inline-flex cursor-pointer items-center rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold transition hover:bg-white/15">
+                  {uploadingImage
+                    ? "Uploading..."
+                    : profilePhotoUrl
+                      ? "Change Photo"
+                      : "Add Photo"}
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={uploadingImage}
+                    className="hidden"
+                  />
+                </label>
+
+                <p className="mt-2 text-xs text-white/45">
+                  Choose a photo from your device.
+                </p>
               </div>
-            )}
-
-            <div>
-              <p className="text-xl font-bold">
-                {preferredName ||
-                  fullName ||
-                  "Unnamed Athlete"}
-              </p>
-
-              <p className="mt-1 text-sm text-white/55">
-                Family-managed athlete
-              </p>
             </div>
           </div>
 
@@ -653,10 +809,8 @@ export default function FamilyManagedAthletePage() {
 
           <button
             type="button"
-            onClick={() =>
-              void handleSave()
-            }
-            disabled={saving}
+            onClick={() => void handleSave()}
+            disabled={saving || uploadingImage}
             className="w-full rounded-xl bg-[#D8F200] px-6 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
           >
             {saving
