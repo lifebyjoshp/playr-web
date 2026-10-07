@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { getActiveAthleteContext } from "../../lib/activeAthlete";
 import AppShell from "../../components/AppShell";
 
 type Profile = {
@@ -20,46 +21,84 @@ type Profile = {
 export default function WatchlistPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeAthleteName, setActiveAthleteName] = useState<string | null>(
+    null
+  );
+  const [requiresAthleteSelection, setRequiresAthleteSelection] =
+    useState(false);
 
   useEffect(() => {
     const loadWatchlist = async () => {
       setLoading(true);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const context = await getActiveAthleteContext();
 
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+        if (!context) {
+          setProfiles([]);
+          setLoading(false);
+          return;
+        }
 
-      const { data: saved } = await supabase
-        .from("saved_players")
-        .select("saved_profile_id")
-        .eq("saver_id", user.id);
+        if (context.requiresAthleteSelection || !context.activeAthlete) {
+          setProfiles([]);
+          setRequiresAthleteSelection(context.requiresAthleteSelection);
+          setLoading(false);
+          return;
+        }
 
-      const ids = saved?.map((s) => s.saved_profile_id) || [];
+        const athlete = context.activeAthlete;
 
-      if (ids.length === 0) {
+        setActiveAthleteName(
+          athlete.preferred_name || athlete.full_name || "Athlete"
+        );
+        setRequiresAthleteSelection(false);
+
+        const { data: saved, error: savedError } = await supabase
+          .from("saved_players")
+          .select("saved_profile_id")
+          .eq("saver_id", athlete.id);
+
+        if (savedError) {
+          console.error("Unable to load Watchlist:", savedError);
+          setProfiles([]);
+          setLoading(false);
+          return;
+        }
+
+        const ids = saved?.map((item) => item.saved_profile_id) || [];
+
+        if (ids.length === 0) {
+          setProfiles([]);
+          setLoading(false);
+          return;
+        }
+
+        const { data: players, error: playersError } = await supabase
+          .from("profiles")
+          .select(
+            "id, full_name, public_slug, headline, primary_sport, position, state, country, profile_photo_url"
+          )
+          .in("id", ids)
+          .eq("is_public", true);
+
+        if (playersError) {
+          console.error("Unable to load Watchlist athletes:", playersError);
+          setProfiles([]);
+          setLoading(false);
+          return;
+        }
+
+        setProfiles(players || []);
+      } catch (error) {
+        console.error("Unable to load active athlete Watchlist:", error);
         setProfiles([]);
+      } finally {
         setLoading(false);
-        return;
       }
-
-      const { data: players } = await supabase
-        .from("profiles")
-        .select(
-          "id, full_name, public_slug, headline, primary_sport, position, state, country, profile_photo_url"
-        )
-        .in("id", ids)
-        .eq("is_public", true);
-
-      setProfiles(players || []);
-      setLoading(false);
     };
 
-    loadWatchlist();
+    void loadWatchlist();
   }, []);
 
   return (
@@ -77,15 +116,25 @@ export default function WatchlistPage() {
           <p className="mt-2 text-sm leading-5 text-white/75 sm:mt-3 sm:text-base sm:leading-normal">
             Athletes you are tracking and monitoring.
           </p>
+
+          {activeAthleteName && (
+            <p className="mt-2 text-xs font-semibold text-[#D8F200]/80 sm:text-sm">
+              {activeAthleteName}&apos;s Watchlist
+            </p>
+          )}
         </div>
 
         {loading ? (
           <div className="rounded-2xl border border-white/10 bg-white/10 p-4 text-sm text-white/70 backdrop-blur sm:rounded-3xl sm:p-6 sm:text-base">
             Loading...
           </div>
+        ) : requiresAthleteSelection ? (
+          <div className="rounded-2xl border border-white/10 bg-white/10 p-4 text-sm text-white/70 backdrop-blur sm:rounded-3xl sm:p-6 sm:text-base">
+            Select an athlete before opening their Watchlist.
+          </div>
         ) : profiles.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/10 p-4 text-sm text-white/70 backdrop-blur sm:rounded-3xl sm:p-6 sm:text-base">
-            You haven’t added any Athletes yet.
+            You haven&apos;t added any Athletes yet.
           </div>
         ) : (
           <>

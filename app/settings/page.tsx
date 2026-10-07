@@ -4,83 +4,145 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "../../components/AppShell";
+import {
+  ActiveAthleteProfile,
+  getActiveAthleteContext,
+} from "../../lib/activeAthlete";
 import { supabase } from "../../lib/supabase";
-
-type Profile = {
-  id: string;
-  full_name: string | null;
-  preferred_name: string | null;
-  email: string | null;
-  public_slug: string | null;
-  profile_photo_url: string | null;
-};
 
 export default function SettingsPage() {
   const router = useRouter();
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [currentEmail, setCurrentEmail] = useState("");
-  const [newEmail, setNewEmail] = useState("");
+  const [activeAthlete, setActiveAthlete] =
+    useState<ActiveAthleteProfile | null>(null);
 
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSelfManaged, setIsSelfManaged] =
+    useState(false);
 
-  const [loading, setLoading] = useState(true);
-  const [savingEmail, setSavingEmail] = useState(false);
-  const [savingPassword, setSavingPassword] = useState(false);
+  const [isGuardianManaged, setIsGuardianManaged] =
+    useState(false);
 
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<
-    "success" | "error" | "info"
-  >("info");
+  const [requiresAthleteSelection, setRequiresAthleteSelection] =
+    useState(false);
+
+  const [currentEmail, setCurrentEmail] =
+    useState("");
+
+  const [newEmail, setNewEmail] =
+    useState("");
+
+  const [newPassword, setNewPassword] =
+    useState("");
+
+  const [confirmPassword, setConfirmPassword] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [savingEmail, setSavingEmail] =
+    useState(false);
+
+  const [savingPassword, setSavingPassword] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [messageType, setMessageType] =
+    useState<
+      "success" | "error" | "info"
+    >("info");
 
   useEffect(() => {
     const loadSettings = async () => {
       setLoading(true);
       setMessage("");
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      try {
+        /*
+         * ----------------------------------------------
+         * 1. AUTHENTICATED ACCOUNT
+         *
+         * Email/password/security belong to the person
+         * who is actually logged into RADR.
+         * ----------------------------------------------
+         */
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      if (userError || !user) {
-        router.push("/login?message=login-required");
-        return;
-      }
+        if (userError || !user) {
+          router.push(
+            "/login?message=login-required"
+          );
+          return;
+        }
 
-      const email = user.email || "";
+        const email =
+          user.email || "";
 
-      setCurrentEmail(email);
-      setNewEmail(email);
+        setCurrentEmail(email);
+        setNewEmail(email);
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          `
-          id,
-          full_name,
-          preferred_name,
-          email,
-          public_slug,
-          profile_photo_url
-        `
-        )
-        .eq("id", user.id)
-        .maybeSingle();
+        /*
+         * ----------------------------------------------
+         * 2. ACTIVE ATHLETE
+         *
+         * Athlete identity is deliberately resolved
+         * separately from the authenticated account.
+         *
+         * Self-managed:
+         * account = athlete
+         *
+         * Guardian-managed:
+         * account = parent/guardian
+         * activeAthlete = child
+         * ----------------------------------------------
+         */
+        const context =
+          await getActiveAthleteContext();
 
-      if (error) {
+        if (!context) {
+          setActiveAthlete(null);
+          setIsSelfManaged(false);
+          setIsGuardianManaged(false);
+          setRequiresAthleteSelection(false);
+          return;
+        }
+
+        setActiveAthlete(
+          context.activeAthlete
+        );
+
+        setIsSelfManaged(
+          context.isSelfManaged
+        );
+
+        setIsGuardianManaged(
+          context.isGuardianManaged
+        );
+
+        setRequiresAthleteSelection(
+          context.requiresAthleteSelection
+        );
+      } catch (error) {
+        console.error(
+          "Unable to load RADR settings:",
+          error
+        );
+
         setMessageType("error");
-        setMessage("Unable to load your RADR account.");
+
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to load your RADR settings."
+        );
+      } finally {
         setLoading(false);
-        return;
       }
-
-      if (data) {
-        setProfile(data as Profile);
-      }
-
-      setLoading(false);
     };
 
     void loadSettings();
@@ -91,35 +153,49 @@ export default function SettingsPage() {
   ) => {
     event.preventDefault();
 
-    const email = newEmail.trim().toLowerCase();
+    const email =
+      newEmail.trim().toLowerCase();
 
     if (!email) {
       setMessageType("error");
-      setMessage("Enter your new email address.");
+      setMessage(
+        "Enter your new email address."
+      );
       return;
     }
 
-    if (email === currentEmail.toLowerCase()) {
+    if (
+      email ===
+      currentEmail.toLowerCase()
+    ) {
       setMessageType("info");
-      setMessage("That is already your current login email.");
+      setMessage(
+        "That is already your current login email."
+      );
       return;
     }
 
     setSavingEmail(true);
     setMessage("");
 
-    const { error } = await supabase.auth.updateUser({
-      email,
-    });
+    const { error } =
+      await supabase.auth.updateUser({
+        email,
+      });
 
     if (error) {
       setMessageType("error");
-      setMessage(`Unable to update email: ${error.message}`);
+
+      setMessage(
+        `Unable to update email: ${error.message}`
+      );
+
       setSavingEmail(false);
       return;
     }
 
     setMessageType("success");
+
     setMessage(
       "Email update requested. Check your email if confirmation is required."
     );
@@ -134,26 +210,41 @@ export default function SettingsPage() {
 
     if (newPassword.length < 8) {
       setMessageType("error");
-      setMessage("Your new password must be at least 8 characters.");
+
+      setMessage(
+        "Your new password must be at least 8 characters."
+      );
+
       return;
     }
 
-    if (newPassword !== confirmPassword) {
+    if (
+      newPassword !== confirmPassword
+    ) {
       setMessageType("error");
-      setMessage("Your passwords do not match.");
+
+      setMessage(
+        "Your passwords do not match."
+      );
+
       return;
     }
 
     setSavingPassword(true);
     setMessage("");
 
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    const { error } =
+      await supabase.auth.updateUser({
+        password: newPassword,
+      });
 
     if (error) {
       setMessageType("error");
-      setMessage(`Unable to update password: ${error.message}`);
+
+      setMessage(
+        `Unable to update password: ${error.message}`
+      );
+
       setSavingPassword(false);
       return;
     }
@@ -162,7 +253,10 @@ export default function SettingsPage() {
     setConfirmPassword("");
 
     setMessageType("success");
-    setMessage("Your RADR password has been updated.");
+
+    setMessage(
+      "Your RADR password has been updated."
+    );
 
     setSavingPassword(false);
   };
@@ -185,8 +279,8 @@ export default function SettingsPage() {
   }
 
   const athleteName =
-    profile?.preferred_name ||
-    profile?.full_name ||
+    activeAthlete?.preferred_name ||
+    activeAthlete?.full_name ||
     "RADR Athlete";
 
   return (
@@ -202,7 +296,8 @@ export default function SettingsPage() {
           </h1>
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/65 sm:text-base">
-            Manage your RADR login, password and account.
+            Manage your RADR account,
+            security and athlete profile.
           </p>
         </div>
 
@@ -221,59 +316,143 @@ export default function SettingsPage() {
         )}
 
         <div className="space-y-4 sm:space-y-6">
-          {/* ACCOUNT IDENTITY */}
+          {/* RADR ACCOUNT */}
           <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-6 md:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
               RADR Account
             </p>
 
-            <div className="mt-5 flex items-center gap-4">
-              {profile?.profile_photo_url ? (
-                <img
-                  src={profile.profile_photo_url}
-                  alt={athleteName}
-                  className="h-16 w-16 shrink-0 rounded-2xl object-cover sm:h-20 sm:w-20"
-                />
-              ) : (
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#081642] text-2xl font-extrabold sm:h-20 sm:w-20">
-                  {athleteName.charAt(0).toUpperCase()}
-                </div>
-              )}
+            <h2 className="mt-2 text-xl font-bold sm:text-2xl">
+              Your account
+            </h2>
 
-              <div className="min-w-0">
-                <h2 className="truncate text-xl font-bold sm:text-2xl">
-                  {athleteName}
-                </h2>
+            <p className="mt-2 text-sm leading-6 text-white/60">
+              Your RADR account controls
+              your login, password and
+              access to RADR.
+            </p>
 
-                <p className="mt-1 truncate text-sm text-white/55">
-                  {currentEmail || "No login email available"}
+            <div className="mt-5 rounded-2xl bg-[#081642] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
+                Login email
+              </p>
+
+              <p className="mt-1 break-all font-semibold text-white">
+                {currentEmail ||
+                  "No login email available"}
+              </p>
+            </div>
+          </section>
+
+          {/* ATHLETE PROFILE */}
+          <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-6 md:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
+              Athlete Profile
+            </p>
+
+            {requiresAthleteSelection ? (
+              <div className="mt-5 rounded-2xl border border-yellow-300/20 bg-yellow-400/10 p-4">
+                <p className="font-bold text-yellow-100">
+                  Athlete selection required
                 </p>
 
-                {profile?.public_slug && (
-                  <p className="mt-1 truncate text-xs text-white/40">
-                    radr.au/p/{profile.public_slug}
-                  </p>
-                )}
+                <p className="mt-2 text-sm leading-6 text-yellow-100/70">
+                  Select the athlete
+                  you&apos;re managing before
+                  editing an athlete profile.
+                </p>
               </div>
-            </div>
+            ) : activeAthlete ? (
+              <>
+                <div className="mt-5 flex items-center gap-4">
+                  {activeAthlete.profile_photo_url ? (
+                    <img
+                      src={
+                        activeAthlete.profile_photo_url
+                      }
+                      alt={athleteName}
+                      className="h-16 w-16 shrink-0 rounded-2xl object-cover sm:h-20 sm:w-20"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#081642] text-2xl font-extrabold sm:h-20 sm:w-20">
+                      {athleteName
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+                  )}
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Link
-                href="/dashboard/public-profile"
-                className="rounded-xl bg-[#D8F200] px-4 py-2.5 text-sm font-bold text-[#0B1F5C] transition hover:brightness-95"
-              >
-                Edit Athlete Profile
-              </Link>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-xl font-bold sm:text-2xl">
+                      {athleteName}
+                    </h2>
 
-              {profile?.public_slug && (
-                <Link
-                  href={`/p/${profile.public_slug}`}
-                  className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
-                >
-                  View Public Profile
-                </Link>
-              )}
-            </div>
+                    <p className="mt-1 text-sm text-white/55">
+                      {activeAthlete.primary_sport ||
+                        "Athlete"}
+                    </p>
+
+                    {isGuardianManaged && (
+                      <div className="mt-2 inline-flex rounded-full border border-[#D8F200]/20 bg-[#D8F200]/10 px-3 py-1 text-xs font-bold text-[#D8F200]">
+                        Parent / guardian managed
+                      </div>
+                    )}
+
+                    {isSelfManaged && (
+                      <p className="mt-2 text-xs text-white/40">
+                        Self-managed athlete
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {isGuardianManaged && (
+                  <div className="mt-5 rounded-2xl border border-white/10 bg-[#081642] p-4">
+                    <p className="text-sm leading-6 text-white/65">
+                      You&apos;re managing{" "}
+                      <span className="font-bold text-white">
+                        {athleteName}
+                      </span>
+                      &apos;s athlete profile
+                      through your RADR
+                      account.
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Link
+                    href="/dashboard/public-profile"
+                    className="rounded-xl bg-[#D8F200] px-4 py-2.5 text-sm font-bold text-[#0B1F5C] transition hover:brightness-95"
+                  >
+                    {isGuardianManaged
+                      ? `Edit ${athleteName}'s Profile`
+                      : "Edit Athlete Profile"}
+                  </Link>
+
+                  {activeAthlete.public_slug && (
+                    <Link
+                      href={`/p/${activeAthlete.public_slug}`}
+                      className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+                    >
+                      View Public Profile
+                    </Link>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-[#081642] p-4">
+                <p className="font-bold">
+                  No athlete profile
+                  available
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-white/60">
+                  There is currently no
+                  athlete profile connected
+                  to this RADR account.
+                </p>
+              </div>
+            )}
           </section>
 
           {/* EMAIL */}
@@ -287,11 +466,14 @@ export default function SettingsPage() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-white/60">
-              This is the email you use to sign in to RADR.
+              This is the email you use
+              to sign in to RADR.
             </p>
 
             <form
-              onSubmit={handleEmailUpdate}
+              onSubmit={
+                handleEmailUpdate
+              }
               className="mt-5 space-y-4"
             >
               <div>
@@ -303,7 +485,9 @@ export default function SettingsPage() {
                   type="email"
                   value={newEmail}
                   onChange={(event) =>
-                    setNewEmail(event.target.value)
+                    setNewEmail(
+                      event.target.value
+                    )
                   }
                   className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 text-white outline-none transition focus:border-[#D8F200]/50"
                   required
@@ -333,11 +517,14 @@ export default function SettingsPage() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-white/60">
-              Choose a new password with at least 8 characters.
+              Choose a new password with
+              at least 8 characters.
             </p>
 
             <form
-              onSubmit={handlePasswordUpdate}
+              onSubmit={
+                handlePasswordUpdate
+              }
               className="mt-5 space-y-4"
             >
               <div>
@@ -349,7 +536,9 @@ export default function SettingsPage() {
                   type="password"
                   value={newPassword}
                   onChange={(event) =>
-                    setNewPassword(event.target.value)
+                    setNewPassword(
+                      event.target.value
+                    )
                   }
                   autoComplete="new-password"
                   className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 text-white outline-none transition focus:border-[#D8F200]/50"
@@ -365,9 +554,13 @@ export default function SettingsPage() {
 
                 <input
                   type="password"
-                  value={confirmPassword}
+                  value={
+                    confirmPassword
+                  }
                   onChange={(event) =>
-                    setConfirmPassword(event.target.value)
+                    setConfirmPassword(
+                      event.target.value
+                    )
                   }
                   autoComplete="new-password"
                   className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 text-white outline-none transition focus:border-[#D8F200]/50"
@@ -378,7 +571,9 @@ export default function SettingsPage() {
 
               <button
                 type="submit"
-                disabled={savingPassword}
+                disabled={
+                  savingPassword
+                }
                 className="w-full rounded-xl bg-[#D8F200] px-5 py-3 text-sm font-bold text-[#0B1F5C] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {savingPassword
@@ -391,7 +586,7 @@ export default function SettingsPage() {
           {/* LEGAL */}
           <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-6 md:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
-              Legal & Privacy
+              Legal &amp; Privacy
             </p>
 
             <h2 className="mt-2 text-xl font-bold sm:text-2xl">
@@ -403,10 +598,13 @@ export default function SettingsPage() {
                 href="/privacy"
                 className="rounded-xl bg-[#081642] p-4 transition hover:bg-white/10"
               >
-                <p className="font-bold">Privacy Policy</p>
+                <p className="font-bold">
+                  Privacy Policy
+                </p>
 
                 <p className="mt-1 text-xs leading-5 text-white/55">
-                  How RADR handles information and data.
+                  How RADR handles
+                  information and data.
                 </p>
 
                 <p className="mt-3 text-xs font-semibold text-[#D8F200]">
@@ -419,11 +617,12 @@ export default function SettingsPage() {
                 className="rounded-xl bg-[#081642] p-4 transition hover:bg-white/10"
               >
                 <p className="font-bold">
-                  Terms & Conditions
+                  Terms &amp; Conditions
                 </p>
 
                 <p className="mt-1 text-xs leading-5 text-white/55">
-                  Terms that apply when using RADR.
+                  Terms that apply when
+                  using RADR.
                 </p>
 
                 <p className="mt-3 text-xs font-semibold text-[#D8F200]">
@@ -444,7 +643,8 @@ export default function SettingsPage() {
             </h2>
 
             <p className="mt-2 text-sm text-white/60">
-              Sign out of your RADR account on this device.
+              Sign out of your RADR
+              account on this device.
             </p>
 
             <button
@@ -456,7 +656,7 @@ export default function SettingsPage() {
             </button>
           </section>
 
-          {/* DELETE */}
+          {/* ACCOUNT MANAGEMENT */}
           <section className="rounded-2xl border border-red-400/20 bg-red-500/5 p-4 sm:rounded-3xl sm:p-6 md:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-300">
               Account Management
@@ -467,14 +667,18 @@ export default function SettingsPage() {
             </h2>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">
-              Account deletion may affect athlete profiles, team
-              memberships and family-managed athletes connected to
-              this account.
+              Deleting your RADR account
+              may affect athlete profiles
+              you manage, team memberships
+              and other data connected to
+              your account.
             </p>
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
-              Automated account deletion is not currently available.
-              Contact RADR to request permanent account deletion.
+              Automated account deletion
+              is not currently available.
+              Contact RADR to request
+              permanent account deletion.
             </p>
 
             <button

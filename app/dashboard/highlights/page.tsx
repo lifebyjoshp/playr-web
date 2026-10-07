@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import AppShell from "../../../components/AppShell";
+import { getActiveAthleteContext } from "../../../lib/activeAthlete";
 
 type Highlight = {
   id: string;
@@ -19,34 +20,47 @@ function getEmbedUrl(url: string, platform: string | null) {
   if (platform === "YouTube") {
     const youtubeMatch =
       url.match(/v=([^&]+)/) || url.match(/youtu\.be\/([^?]+)/);
+
     const videoId = youtubeMatch?.[1];
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+
+    return videoId
+      ? `https://www.youtube.com/embed/${videoId}`
+      : null;
   }
 
   if (platform === "Vimeo") {
     const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
     const videoId = vimeoMatch?.[1];
-    return videoId ? `https://player.vimeo.com/video/${videoId}` : null;
+
+    return videoId
+      ? `https://player.vimeo.com/video/${videoId}`
+      : null;
   }
 
   return null;
 }
 
 export default function HighlightsPage() {
+  const [athleteProfileId, setAthleteProfileId] =
+    useState<string | null>(null);
+
   const [title, setTitle] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [platform, setPlatform] = useState("");
   const [description, setDescription] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<"success" | "error" | "info">(
-    "info"
-  );
+  const [messageType, setMessageType] = useState<
+    "success" | "error" | "info"
+  >("info");
+
   const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const [editingHighlightId, setEditingHighlightId] = useState<string | null>(
-    null
-  );
+
+  const [editingHighlightId, setEditingHighlightId] =
+    useState<string | null>(null);
 
   const resetForm = () => {
     setTitle("");
@@ -56,26 +70,89 @@ export default function HighlightsPage() {
     setEditingHighlightId(null);
   };
 
-  const loadHighlights = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const resolveAthleteId = async () => {
+    const context = await getActiveAthleteContext();
 
-    if (!user) return;
+    if (!context) {
+      throw new Error("Could not load your RADR account.");
+    }
 
-    const { data, error } = await supabase
-      .from("highlights")
-      .select("*")
-      .eq("profile_id", user.id)
-      .order("created_at", { ascending: false });
+    if (context.requiresAthleteSelection) {
+      throw new Error(
+        "Choose an athlete before managing highlights."
+      );
+    }
 
-    if (!error && data) {
-      setHighlights(data);
+    if (!context.activeAthlete) {
+      throw new Error(
+        "No athlete profile is connected to this RADR account yet."
+      );
+    }
+
+    return context.activeAthlete.id;
+  };
+
+  const loadHighlights = async (profileId?: string) => {
+    try {
+      const activeAthleteId =
+        profileId ||
+        athleteProfileId ||
+        (await resolveAthleteId());
+
+      setAthleteProfileId(activeAthleteId);
+
+      const { data, error } = await supabase
+        .from("highlights")
+        .select("*")
+        .eq("profile_id", activeAthleteId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      setHighlights((data || []) as Highlight[]);
+    } catch (error) {
+      console.error("Unable to load highlights:", error);
+
+      setMessageType("error");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load highlights."
+      );
     }
   };
 
   useEffect(() => {
-    loadHighlights();
+    const initialiseHighlights = async () => {
+      setInitialLoading(true);
+      setMessage("");
+
+      try {
+        const activeAthleteId = await resolveAthleteId();
+
+        setAthleteProfileId(activeAthleteId);
+
+        await loadHighlights(activeAthleteId);
+      } catch (error) {
+        console.error(
+          "Unable to initialise highlights:",
+          error
+        );
+
+        setMessageType("error");
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to load highlights."
+        );
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    void initialiseHighlights();
   }, []);
 
   const handleEdit = (highlight: Highlight) => {
@@ -85,7 +162,13 @@ export default function HighlightsPage() {
     setPlatform(highlight.platform || "");
     setDescription(highlight.description || "");
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setMessage("");
+    setMessageType("info");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   const handleDelete = async (highlightId: string) => {
@@ -93,126 +176,167 @@ export default function HighlightsPage() {
       "Are you sure you want to delete this highlight?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
+
+    if (!athleteProfileId) {
+      setMessageType("error");
+      setMessage("No active athlete is selected.");
+      return;
+    }
 
     setLoading(true);
     setMessage("Deleting highlight...");
     setMessageType("info");
 
-    const { error } = await supabase
-      .from("highlights")
-      .delete()
-      .eq("id", highlightId);
+    try {
+      const { error } = await supabase
+        .from("highlights")
+        .delete()
+        .eq("id", highlightId)
+        .eq("profile_id", athleteProfileId);
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      if (editingHighlightId === highlightId) {
+        resetForm();
+      }
+
+      setMessageType("success");
+      setMessage("Highlight deleted successfully.");
+
+      await loadHighlights(athleteProfileId);
+    } catch (error) {
+      console.error("Unable to delete highlight:", error);
+
       setMessageType("error");
-      setMessage(`Error deleting highlight: ${error.message}`);
+      setMessage(
+        error instanceof Error
+          ? "Error deleting highlight: " + error.message
+          : "Error deleting highlight."
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (editingHighlightId === highlightId) {
-      resetForm();
-    }
-
-    setMessageType("success");
-    setMessage("Highlight deleted successfully.");
-    await loadHighlights();
-    setLoading(false);
   };
 
   const handleSaveHighlight = async () => {
     setLoading(true);
+
     setMessage(
-      editingHighlightId ? "Updating highlight..." : "Saving highlight..."
+      editingHighlightId
+        ? "Updating highlight..."
+        : "Saving highlight..."
     );
+
     setMessageType("info");
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    try {
+      let activeAthleteId = athleteProfileId;
 
-    if (userError || !user) {
-      setMessageType("error");
-      setMessage("You must be logged in to manage highlights.");
-      setLoading(false);
-      return;
-    }
-
-    if (!title.trim()) {
-      setMessageType("error");
-      setMessage("Title is required.");
-      setLoading(false);
-      return;
-    }
-
-    if (!videoUrl.trim()) {
-      setMessageType("error");
-      setMessage("Video URL is required.");
-      setLoading(false);
-      return;
-    }
-
-    if (editingHighlightId) {
-      const { error } = await supabase
-        .from("highlights")
-        .update({
-          title,
-          video_url: videoUrl,
-          platform: platform || null,
-          description: description || null,
-        })
-        .eq("id", editingHighlightId);
-
-      if (error) {
-        setMessageType("error");
-        setMessage(`Error updating highlight: ${error.message}`);
-        setLoading(false);
-        return;
+      if (!activeAthleteId) {
+        activeAthleteId = await resolveAthleteId();
+        setAthleteProfileId(activeAthleteId);
       }
 
-      setMessageType("success");
-      setMessage("Highlight updated successfully.");
-    } else {
-      const { error } = await supabase.from("highlights").insert({
-        profile_id: user.id,
-        title,
-        video_url: videoUrl,
-        platform: platform || null,
-        description: description || null,
-      });
-
-      if (error) {
-        setMessageType("error");
-        setMessage(`Error saving highlight: ${error.message}`);
-        setLoading(false);
-        return;
+      if (!title.trim()) {
+        throw new Error("Title is required.");
       }
 
-      setMessageType("success");
-      setMessage("Highlight added successfully.");
-    }
+      if (!videoUrl.trim()) {
+        throw new Error("Video URL is required.");
+      }
 
-    resetForm();
-    await loadHighlights();
-    setLoading(false);
+      if (editingHighlightId) {
+        const { error } = await supabase
+          .from("highlights")
+          .update({
+            title: title.trim(),
+            video_url: videoUrl.trim(),
+            platform: platform || null,
+            description: description.trim() || null,
+          })
+          .eq("id", editingHighlightId)
+          .eq("profile_id", activeAthleteId);
+
+        if (error) {
+          throw new Error(
+            "Error updating highlight: " + error.message
+          );
+        }
+
+        setMessageType("success");
+        setMessage("Highlight updated successfully.");
+      } else {
+        const { error } = await supabase
+          .from("highlights")
+          .insert({
+            profile_id: activeAthleteId,
+            title: title.trim(),
+            video_url: videoUrl.trim(),
+            platform: platform || null,
+            description: description.trim() || null,
+          });
+
+        if (error) {
+          throw new Error(
+            "Error saving highlight: " + error.message
+          );
+        }
+
+        setMessageType("success");
+        setMessage("Highlight added successfully.");
+      }
+
+      resetForm();
+
+      await loadHighlights(activeAthleteId);
+    } catch (error) {
+      console.error("Unable to save highlight:", error);
+
+      setMessageType("error");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to save highlight."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (initialLoading) {
+    return (
+      <AppShell>
+        <section className="mx-auto max-w-7xl px-6 py-16 md:px-10">
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur">
+            <p className="text-white/70">
+              Loading athlete highlights...
+            </p>
+          </div>
+        </section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
-
       <section className="mx-auto max-w-7xl px-6 py-16 md:px-10">
         <div className="mb-10">
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.25em] text-[#D8F200]">
             Highlights
           </p>
+
           <h1 className="text-4xl font-extrabold md:text-5xl">
             Add highlights
           </h1>
+
           <p className="mt-3 max-w-3xl text-white/75">
-            Add your best video highlights so coaches, scouts, and recruiters
-            can quickly see your game.
+            Add your best video highlights so coaches, scouts,
+            and recruiters can quickly see your game.
           </p>
         </div>
 
@@ -220,11 +344,14 @@ export default function HighlightsPage() {
           <div className="space-y-6 rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-2xl font-bold">
-                {editingHighlightId ? "Edit Highlight" : "Add Highlight"}
+                {editingHighlightId
+                  ? "Edit Highlight"
+                  : "Add Highlight"}
               </h2>
 
               {editingHighlightId && (
                 <button
+                  type="button"
                   onClick={resetForm}
                   className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
                 >
@@ -234,18 +361,24 @@ export default function HighlightsPage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Title</label>
+              <label className="mb-2 block text-sm font-medium">
+                Title
+              </label>
+
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. 2025 season highlights"
+                placeholder="e.g. 2026 season highlights"
                 className="w-full rounded-xl bg-[#081642] px-4 py-3"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Video URL</label>
+              <label className="mb-2 block text-sm font-medium">
+                Video URL
+              </label>
+
               <input
                 type="url"
                 value={videoUrl}
@@ -256,7 +389,10 @@ export default function HighlightsPage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Platform</label>
+              <label className="mb-2 block text-sm font-medium">
+                Platform
+              </label>
+
               <select
                 value={platform}
                 onChange={(e) => setPlatform(e.target.value)}
@@ -275,6 +411,7 @@ export default function HighlightsPage() {
               <label className="mb-2 block text-sm font-medium">
                 Description
               </label>
+
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -285,8 +422,9 @@ export default function HighlightsPage() {
             </div>
 
             <button
+              type="button"
               onClick={handleSaveHighlight}
-              disabled={loading}
+              disabled={loading || !athleteProfileId}
               className="w-full rounded-xl bg-[#D8F200] px-6 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
             >
               {loading
@@ -294,8 +432,8 @@ export default function HighlightsPage() {
                   ? "Updating..."
                   : "Saving..."
                 : editingHighlightId
-                ? "Update Highlight"
-                : "Add Highlight"}
+                  ? "Update Highlight"
+                  : "Add Highlight"}
             </button>
 
             {message && (
@@ -304,8 +442,8 @@ export default function HighlightsPage() {
                   messageType === "success"
                     ? "bg-green-500/20 text-green-200"
                     : messageType === "error"
-                    ? "bg-red-500/20 text-red-200"
-                    : "bg-white/10 text-white"
+                      ? "bg-red-500/20 text-red-200"
+                      : "bg-white/10 text-white"
                 }`}
               >
                 {message}
@@ -314,7 +452,9 @@ export default function HighlightsPage() {
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur">
-            <h2 className="mb-6 text-2xl font-bold">Your Highlights</h2>
+            <h2 className="mb-6 text-2xl font-bold">
+              Your Highlights
+            </h2>
 
             <div className="space-y-6">
               {highlights.length === 0 && (
@@ -334,7 +474,9 @@ export default function HighlightsPage() {
                     key={highlight.id}
                     className="rounded-2xl bg-[#081642] p-5"
                   >
-                    <h3 className="text-xl font-bold">{highlight.title}</h3>
+                    <h3 className="text-xl font-bold">
+                      {highlight.title}
+                    </h3>
 
                     {highlight.platform && (
                       <p className="mt-1 text-sm text-white/70">
@@ -375,15 +517,21 @@ export default function HighlightsPage() {
 
                     <div className="mt-4 flex gap-3">
                       <button
+                        type="button"
                         onClick={() => handleEdit(highlight)}
-                        className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
+                        disabled={loading}
+                        className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15 disabled:opacity-60"
                       >
                         Edit
                       </button>
 
                       <button
-                        onClick={() => handleDelete(highlight.id)}
-                        className="rounded-xl bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-500/30"
+                        type="button"
+                        onClick={() =>
+                          handleDelete(highlight.id)
+                        }
+                        disabled={loading}
+                        className="rounded-xl bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-500/30 disabled:opacity-60"
                       >
                         Delete
                       </button>

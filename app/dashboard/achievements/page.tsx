@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import AppShell from "../../../components/AppShell";
+import { getActiveAthleteContext } from "../../../lib/activeAthlete";
 
 type Achievement = {
   id: string;
@@ -14,6 +15,8 @@ type Achievement = {
 };
 
 export default function AchievementsPage() {
+  const [athleteProfileId, setAthleteProfileId] = useState<string | null>(null);
+
   const [title, setTitle] = useState("");
   const [achievementType, setAchievementType] = useState("");
   const [organisation, setOrganisation] = useState("");
@@ -21,15 +24,18 @@ export default function AchievementsPage() {
   const [achievementDate, setAchievementDate] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<"success" | "error" | "info">(
-    "info"
-  );
+  const [messageType, setMessageType] = useState<
+    "success" | "error" | "info"
+  >("info");
+
   const [achievements, setAchievements] = useState<Achievement[]>([]);
 
-  const [editingAchievementId, setEditingAchievementId] = useState<string | null>(
-    null
-  );
+  const [editingAchievementId, setEditingAchievementId] = useState<
+    string | null
+  >(null);
 
   const resetForm = () => {
     setTitle("");
@@ -40,26 +46,84 @@ export default function AchievementsPage() {
     setEditingAchievementId(null);
   };
 
-  const loadAchievements = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const resolveAthleteId = async () => {
+    const context = await getActiveAthleteContext();
 
-    if (!user) return;
+    if (!context) {
+      throw new Error("Could not load your RADR account.");
+    }
 
-    const { data, error } = await supabase
-      .from("achievements")
-      .select("*")
-      .eq("profile_id", user.id)
-      .order("achievement_date", { ascending: false });
+    if (context.requiresAthleteSelection) {
+      throw new Error(
+        "Choose an athlete before managing achievements."
+      );
+    }
 
-    if (!error && data) {
-      setAchievements(data);
+    if (!context.activeAthlete) {
+      throw new Error(
+        "No athlete profile is connected to this RADR account yet."
+      );
+    }
+
+    return context.activeAthlete.id;
+  };
+
+  const loadAchievements = async (profileId?: string) => {
+    try {
+      const activeAthleteId =
+        profileId || athleteProfileId || (await resolveAthleteId());
+
+      setAthleteProfileId(activeAthleteId);
+
+      const { data, error } = await supabase
+        .from("achievements")
+        .select("*")
+        .eq("profile_id", activeAthleteId)
+        .order("achievement_date", { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      setAchievements((data || []) as Achievement[]);
+    } catch (error) {
+      console.error("Unable to load achievements:", error);
+
+      setMessageType("error");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load achievements."
+      );
     }
   };
 
   useEffect(() => {
-    loadAchievements();
+    const initialiseAchievements = async () => {
+      setInitialLoading(true);
+      setMessage("");
+
+      try {
+        const activeAthleteId = await resolveAthleteId();
+
+        setAthleteProfileId(activeAthleteId);
+
+        await loadAchievements(activeAthleteId);
+      } catch (error) {
+        console.error("Unable to initialise achievements:", error);
+
+        setMessageType("error");
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to load achievements."
+        );
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    void initialiseAchievements();
   }, []);
 
   const handleEdit = (achievement: Achievement) => {
@@ -70,7 +134,13 @@ export default function AchievementsPage() {
     setDescription(achievement.description || "");
     setAchievementDate(achievement.achievement_date || "");
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setMessage("");
+    setMessageType("info");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   const handleDelete = async (achievementId: string) => {
@@ -78,118 +148,162 @@ export default function AchievementsPage() {
       "Are you sure you want to delete this achievement?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
+
+    if (!athleteProfileId) {
+      setMessageType("error");
+      setMessage("No active athlete is selected.");
+      return;
+    }
 
     setLoading(true);
     setMessage("Deleting achievement...");
     setMessageType("info");
 
-    const { error } = await supabase
-      .from("achievements")
-      .delete()
-      .eq("id", achievementId);
+    try {
+      const { error } = await supabase
+        .from("achievements")
+        .delete()
+        .eq("id", achievementId)
+        .eq("profile_id", athleteProfileId);
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      if (editingAchievementId === achievementId) {
+        resetForm();
+      }
+
+      setMessageType("success");
+      setMessage("Achievement deleted successfully.");
+
+      await loadAchievements(athleteProfileId);
+    } catch (error) {
+      console.error("Unable to delete achievement:", error);
+
       setMessageType("error");
-      setMessage(`Error deleting achievement: ${error.message}`);
+      setMessage(
+        error instanceof Error
+          ? "Error deleting achievement: " + error.message
+          : "Error deleting achievement."
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (editingAchievementId === achievementId) {
-      resetForm();
-    }
-
-    setMessageType("success");
-    setMessage("Achievement deleted successfully.");
-    await loadAchievements();
-    setLoading(false);
   };
 
   const handleSaveAchievement = async () => {
     setLoading(true);
+
     setMessage(
-      editingAchievementId ? "Updating achievement..." : "Saving achievement..."
+      editingAchievementId
+        ? "Updating achievement..."
+        : "Saving achievement..."
     );
+
     setMessageType("info");
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    try {
+      let activeAthleteId = athleteProfileId;
 
-    if (userError || !user) {
-      setMessageType("error");
-      setMessage("You must be logged in to manage achievements.");
-      setLoading(false);
-      return;
-    }
-
-    if (!title.trim()) {
-      setMessageType("error");
-      setMessage("Title is required.");
-      setLoading(false);
-      return;
-    }
-
-    if (editingAchievementId) {
-      const { error } = await supabase
-        .from("achievements")
-        .update({
-          title,
-          achievement_type: achievementType || null,
-          organisation: organisation || null,
-          description: description || null,
-          achievement_date: achievementDate || null,
-        })
-        .eq("id", editingAchievementId);
-
-      if (error) {
-        setMessageType("error");
-        setMessage(`Error updating achievement: ${error.message}`);
-        setLoading(false);
-        return;
+      if (!activeAthleteId) {
+        activeAthleteId = await resolveAthleteId();
+        setAthleteProfileId(activeAthleteId);
       }
 
-      setMessageType("success");
-      setMessage("Achievement updated successfully.");
-    } else {
-      const { error } = await supabase.from("achievements").insert({
-        profile_id: user.id,
-        title,
-        achievement_type: achievementType || null,
-        organisation: organisation || null,
-        description: description || null,
-        achievement_date: achievementDate || null,
-      });
-
-      if (error) {
-        setMessageType("error");
-        setMessage(`Error saving achievement: ${error.message}`);
-        setLoading(false);
-        return;
+      if (!title.trim()) {
+        throw new Error("Title is required.");
       }
 
-      setMessageType("success");
-      setMessage("Achievement added successfully.");
-    }
+      if (editingAchievementId) {
+        const { error } = await supabase
+          .from("achievements")
+          .update({
+            title: title.trim(),
+            achievement_type: achievementType || null,
+            organisation: organisation.trim() || null,
+            description: description.trim() || null,
+            achievement_date: achievementDate || null,
+          })
+          .eq("id", editingAchievementId)
+          .eq("profile_id", activeAthleteId);
 
-    resetForm();
-    await loadAchievements();
-    setLoading(false);
+        if (error) {
+          throw new Error(
+            "Error updating achievement: " + error.message
+          );
+        }
+
+        setMessageType("success");
+        setMessage("Achievement updated successfully.");
+      } else {
+        const { error } = await supabase
+          .from("achievements")
+          .insert({
+            profile_id: activeAthleteId,
+            title: title.trim(),
+            achievement_type: achievementType || null,
+            organisation: organisation.trim() || null,
+            description: description.trim() || null,
+            achievement_date: achievementDate || null,
+          });
+
+        if (error) {
+          throw new Error(
+            "Error saving achievement: " + error.message
+          );
+        }
+
+        setMessageType("success");
+        setMessage("Achievement added successfully.");
+      }
+
+      resetForm();
+
+      await loadAchievements(activeAthleteId);
+    } catch (error) {
+      console.error("Unable to save achievement:", error);
+
+      setMessageType("error");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to save achievement."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (initialLoading) {
+    return (
+      <AppShell>
+        <section className="mx-auto max-w-7xl px-6 py-16 md:px-10">
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur">
+            <p className="text-white/70">
+              Loading athlete achievements...
+            </p>
+          </div>
+        </section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
-
       <section className="mx-auto max-w-7xl px-6 py-16 md:px-10">
         <div className="mb-10">
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.25em] text-[#D8F200]">
             Achievements
           </p>
+
           <h1 className="text-4xl font-extrabold md:text-5xl">
             Add achievements
           </h1>
+
           <p className="mt-3 max-w-3xl text-white/75">
             Showcase awards, selections, captaincy, milestones, and key moments
             that make your profile stand out.
@@ -200,11 +314,14 @@ export default function AchievementsPage() {
           <div className="space-y-6 rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-2xl font-bold">
-                {editingAchievementId ? "Edit Achievement" : "Add Achievement"}
+                {editingAchievementId
+                  ? "Edit Achievement"
+                  : "Add Achievement"}
               </h2>
 
               {editingAchievementId && (
                 <button
+                  type="button"
                   onClick={resetForm}
                   className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
                 >
@@ -214,7 +331,10 @@ export default function AchievementsPage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Title</label>
+              <label className="mb-2 block text-sm font-medium">
+                Title
+              </label>
+
               <input
                 type="text"
                 value={title}
@@ -228,6 +348,7 @@ export default function AchievementsPage() {
               <label className="mb-2 block text-sm font-medium">
                 Achievement Type
               </label>
+
               <select
                 value={achievementType}
                 onChange={(e) => setAchievementType(e.target.value)}
@@ -247,6 +368,7 @@ export default function AchievementsPage() {
               <label className="mb-2 block text-sm font-medium">
                 Organisation / Team
               </label>
+
               <input
                 type="text"
                 value={organisation}
@@ -260,6 +382,7 @@ export default function AchievementsPage() {
               <label className="mb-2 block text-sm font-medium">
                 Achievement Date
               </label>
+
               <input
                 type="date"
                 value={achievementDate}
@@ -272,6 +395,7 @@ export default function AchievementsPage() {
               <label className="mb-2 block text-sm font-medium">
                 Description
               </label>
+
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -282,8 +406,9 @@ export default function AchievementsPage() {
             </div>
 
             <button
+              type="button"
               onClick={handleSaveAchievement}
-              disabled={loading}
+              disabled={loading || !athleteProfileId}
               className="w-full rounded-xl bg-[#D8F200] px-6 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
             >
               {loading
@@ -291,8 +416,8 @@ export default function AchievementsPage() {
                   ? "Updating..."
                   : "Saving..."
                 : editingAchievementId
-                ? "Update Achievement"
-                : "Add Achievement"}
+                  ? "Update Achievement"
+                  : "Add Achievement"}
             </button>
 
             {message && (
@@ -301,8 +426,8 @@ export default function AchievementsPage() {
                   messageType === "success"
                     ? "bg-green-500/20 text-green-200"
                     : messageType === "error"
-                    ? "bg-red-500/20 text-red-200"
-                    : "bg-white/10 text-white"
+                      ? "bg-red-500/20 text-red-200"
+                      : "bg-white/10 text-white"
                 }`}
               >
                 {message}
@@ -311,7 +436,9 @@ export default function AchievementsPage() {
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur">
-            <h2 className="mb-6 text-2xl font-bold">Your Achievements</h2>
+            <h2 className="mb-6 text-2xl font-bold">
+              Your Achievements
+            </h2>
 
             <div className="space-y-4">
               {achievements.length === 0 && (
@@ -325,7 +452,9 @@ export default function AchievementsPage() {
                   key={achievement.id}
                   className="rounded-2xl bg-[#081642] p-5"
                 >
-                  <h3 className="text-xl font-bold">{achievement.title}</h3>
+                  <h3 className="text-xl font-bold">
+                    {achievement.title}
+                  </h3>
 
                   <p className="mt-1 text-sm text-white/70">
                     {achievement.achievement_type || "Achievement"}
@@ -351,15 +480,19 @@ export default function AchievementsPage() {
 
                   <div className="mt-4 flex gap-3">
                     <button
+                      type="button"
                       onClick={() => handleEdit(achievement)}
-                      className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
+                      disabled={loading}
+                      className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15 disabled:opacity-60"
                     >
                       Edit
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => handleDelete(achievement.id)}
-                      className="rounded-xl bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-500/30"
+                      disabled={loading}
+                      className="rounded-xl bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-500/30 disabled:opacity-60"
                     >
                       Delete
                     </button>

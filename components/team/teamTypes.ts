@@ -15,6 +15,8 @@ export type Team = {
   gender: string | null;
   division: string | null;
   season: string | null;
+  season_start: string | null;
+  season_end: string | null;
   is_public: boolean;
   verification_status: string;
   created_by: string | null;
@@ -32,6 +34,8 @@ export type TeamFormValues = {
   gender: string;
   division: string;
   season: string;
+  seasonStart: string;
+  seasonEnd: string;
   isPublic: boolean;
 };
 

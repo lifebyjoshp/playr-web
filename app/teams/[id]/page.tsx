@@ -7,6 +7,10 @@ import Navbar from "../../../components/Navbar";
 import InviteTeammates from "../../../components/InviteTeammates";
 import { BRAND } from "../../../lib/branding";
 import { supabase } from "../../../lib/supabase";
+import {
+  ActiveAthleteContext,
+  getActiveAthleteContext,
+} from "../../../lib/activeAthlete";
 
 type Team = {
   id: string;
@@ -23,6 +27,8 @@ type Team = {
   gender: string | null;
   division: string | null;
   season: string | null;
+  season_start: string | null;
+  season_end: string | null;
   verification_status: string;
   is_public: boolean;
 };
@@ -34,6 +40,7 @@ type TeamMember = {
   jersey_number: string | number | null;
   membership_role: string;
   membership_status: string;
+
   profiles:
     | {
         id: string;
@@ -50,118 +57,332 @@ type TeamMember = {
     | null;
 };
 
+const TEAM_MANAGER_ROLES = [
+  "admin",
+  "manager",
+  "head_coach",
+  "assistant_coach",
+];
+
 function getRoleLabel(role: string) {
   return role
     .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .map(
+      (word) =>
+        word.charAt(0).toUpperCase() +
+        word.slice(1)
+    )
     .join(" ");
+}
+
+function formatSeasonDate(value: string | null) {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
+}
+
+function getSeasonDateLabel(seasonStart: string | null, seasonEnd: string | null) {
+  const start = formatSeasonDate(seasonStart);
+  const end = formatSeasonDate(seasonEnd);
+
+  if (start && end) return `${start} – ${end}`;
+  if (start) return `Started ${start}`;
+  if (end) return `Ended ${end}`;
+  return null;
 }
 
 export default function PublicTeamPage() {
   const params = useParams<{ id: string }>();
   const slug = params.id;
 
-  const [team, setTeam] = useState<Team | null>(null);
-  const [memberships, setMemberships] = useState<TeamMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [canInvite, setCanInvite] = useState(false);
-  const [showInvite, setShowInvite] = useState(false);
+  const [team, setTeam] =
+    useState<Team | null>(null);
+
+  const [memberships, setMemberships] =
+    useState<TeamMember[]>([]);
+
+  const [athleteContext, setAthleteContext] =
+    useState<ActiveAthleteContext | null>(
+      null
+    );
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [canInvite, setCanInvite] =
+    useState(false);
+
+  const [canSearchRadr, setCanSearchRadr] =
+    useState(false);
+
+  const [showInvite, setShowInvite] =
+    useState(false);
 
   useEffect(() => {
     const loadTeam = async () => {
       setLoading(true);
       setMessage("");
+      setCanInvite(false);
+      setCanSearchRadr(false);
+      setShowInvite(false);
 
-      const { data, error } = await supabase
-        .from("teams")
-        .select(
-          `
-          id,
-          slug,
-          display_name,
-          sport,
-          country,
-          state,
-          association_name,
-          competition_name,
-          club_name,
-          team_name,
-          age_group,
-          gender,
-          division,
-          season,
-          verification_status,
-          is_public
-        `
-        )
-        .eq("slug", slug)
-        .eq("is_public", true)
-        .maybeSingle();
+      try {
+        /*
+         * --------------------------------------------------
+         * 1. Load the public team.
+         * --------------------------------------------------
+         */
+        const { data, error } =
+          await supabase
+            .from("teams")
+            .select(
+              `
+              id,
+              slug,
+              display_name,
+              sport,
+              country,
+              state,
+              association_name,
+              competition_name,
+              club_name,
+              team_name,
+              age_group,
+              gender,
+              division,
+              season,
+              season_start,
+              season_end,
+              verification_status,
+              is_public
+            `
+            )
+            .eq("slug", slug)
+            .eq("is_public", true)
+            .maybeSingle();
 
-      if (error || !data) {
-        setTeam(null);
-        setMemberships([]);
-        setMessage(
-          error
-            ? `Unable to load team: ${error.message}`
-            : "This team could not be found or is not publicly available."
-        );
-        setLoading(false);
-        return;
-      }
+        if (error || !data) {
+          setTeam(null);
+          setMemberships([]);
 
-      const loadedTeam = data as Team;
-      setTeam(loadedTeam);
+          setMessage(
+            error
+              ? `Unable to load team: ${error.message}`
+              : "This team could not be found or is not publicly available."
+          );
 
-      const { data: membershipData, error: membershipError } = await supabase
-        .from("player_team_memberships")
-        .select(
-          `
-          id,
-          profile_id,
-          position,
-          jersey_number,
-          membership_role,
-          membership_status,
-          profiles!player_team_memberships_profile_id_fkey (
-            id,
-            full_name,
-            public_slug,
-            profile_photo_url
-          )
-        `
-        )
-        .eq("team_id", loadedTeam.id)
-        .eq("membership_status", "active")
-        .order("created_at", { ascending: true });
+          return;
+        }
 
-      if (membershipError) {
-        setMemberships([]);
-        setMessage(`Roster could not be loaded: ${membershipError.message}`);
-      } else {
-        setMemberships((membershipData || []) as unknown as TeamMember[]);
-      }
+        const loadedTeam = data as Team;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        setTeam(loadedTeam);
 
-      if (user) {
-        const { data: activeMembership } = await supabase
+        /*
+         * --------------------------------------------------
+         * 2. Load active team members.
+         * --------------------------------------------------
+         */
+        const {
+          data: membershipData,
+          error: membershipError,
+        } = await supabase
           .from("player_team_memberships")
-          .select("id")
+          .select(
+            `
+            id,
+            profile_id,
+            position,
+            jersey_number,
+            membership_role,
+            membership_status,
+            profiles!player_team_memberships_profile_id_fkey (
+              id,
+              full_name,
+              public_slug,
+              profile_photo_url
+            )
+          `
+          )
           .eq("team_id", loadedTeam.id)
-          .eq("profile_id", user.id)
-          .eq("membership_status", "active")
+          .eq(
+            "membership_status",
+            "active"
+          )
+          .order("created_at", {
+            ascending: true,
+          });
+
+        if (membershipError) {
+          setMemberships([]);
+
+          setMessage(
+            `Roster could not be loaded: ${membershipError.message}`
+          );
+        } else {
+          setMemberships(
+            (membershipData ||
+              []) as unknown as TeamMember[]
+          );
+        }
+
+        /*
+         * --------------------------------------------------
+         * 3. Resolve RADR athlete context.
+         *
+         * auth user
+         * = who is logged in
+         *
+         * active athlete
+         * = whose athlete identity RADR is currently
+         *   operating against
+         * --------------------------------------------------
+         */
+        let context: ActiveAthleteContext | null =
+          null;
+
+        try {
+          context =
+            await getActiveAthleteContext();
+
+          setAthleteContext(context);
+        } catch (contextError) {
+          console.error(
+            "Unable to resolve athlete context:",
+            contextError
+          );
+
+          setAthleteContext(null);
+        }
+
+        /*
+         * --------------------------------------------------
+         * 4. Determine invite access.
+         *
+         * Self-managed athlete:
+         *
+         * auth user → athlete → team
+         *
+         * Guardian-managed athlete:
+         *
+         * parent → active athlete → team
+         *
+         * The parent does NOT need their own membership.
+         * --------------------------------------------------
+         */
+        const activeAthlete =
+          context?.activeAthlete;
+
+        if (!activeAthlete) {
+          setCanInvite(false);
+          setCanSearchRadr(false);
+          return;
+        }
+
+        const {
+          data: activeMembership,
+          error: activeMembershipError,
+        } = await supabase
+          .from(
+            "player_team_memberships"
+          )
+          .select(
+            `
+            id,
+            membership_role,
+            membership_status
+          `
+          )
+          .eq(
+            "team_id",
+            loadedTeam.id
+          )
+          .eq(
+            "profile_id",
+            activeAthlete.id
+          )
+          .eq(
+            "membership_status",
+            "active"
+          )
           .maybeSingle();
 
-        setCanInvite(Boolean(activeMembership));
-      } else {
-        setCanInvite(false);
-      }
+        if (activeMembershipError) {
+          console.error(
+            "Unable to check active athlete team membership:",
+            activeMembershipError
+          );
 
-      setLoading(false);
+          setCanInvite(false);
+          setCanSearchRadr(false);
+          return;
+        }
+
+        if (!activeMembership) {
+          setCanInvite(false);
+          setCanSearchRadr(false);
+          return;
+        }
+
+        /*
+         * A self-managed athlete who belongs to the
+         * team can share the team invite.
+         *
+         * A guardian-managed athlete can do the same
+         * only when the guardian has team-management
+         * permission for that athlete.
+         */
+        const hasTeamManagementRole =
+          TEAM_MANAGER_ROLES.includes(
+            activeMembership.membership_role
+          );
+
+        if (context?.isSelfManaged) {
+          setCanInvite(true);
+          setCanSearchRadr(hasTeamManagementRole);
+          return;
+        }
+
+        if (
+          context?.isGuardianManaged &&
+          context.activeGuardianPermissions
+            ?.canManageTeams === true
+        ) {
+          setCanInvite(true);
+          setCanSearchRadr(hasTeamManagementRole);
+          return;
+        }
+
+        setCanInvite(false);
+        setCanSearchRadr(false);
+      } catch (error) {
+        console.error(
+          "Unable to load team:",
+          error
+        );
+
+        setTeam(null);
+        setMemberships([]);
+        setCanInvite(false);
+        setCanSearchRadr(false);
+
+        setMessage(
+          error instanceof Error
+            ? `Unable to load team: ${error.message}`
+            : "Unable to load team."
+        );
+      } finally {
+        setLoading(false);
+      }
     };
 
     if (slug) {
@@ -173,6 +394,7 @@ export default function PublicTeamPage() {
     return (
       <main className="min-h-screen bg-[#0B1F5C] pb-24 text-white md:pb-0">
         <Navbar />
+
         <section className="mx-auto max-w-6xl px-3 py-6 sm:px-4 sm:py-8 md:px-6 md:py-16">
           <div className="rounded-2xl border border-white/10 bg-white/10 p-4 sm:rounded-3xl sm:p-6 md:p-8">
             Loading team...
@@ -186,6 +408,7 @@ export default function PublicTeamPage() {
     return (
       <main className="min-h-screen bg-[#0B1F5C] pb-24 text-white md:pb-0">
         <Navbar />
+
         <section className="mx-auto max-w-6xl px-3 py-6 sm:px-4 sm:py-8 md:px-6 md:py-16">
           <div className="rounded-2xl border border-white/10 bg-white/10 p-4 sm:rounded-3xl sm:p-6 md:p-8">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#D8F200] sm:text-sm sm:tracking-[0.25em]">
@@ -230,12 +453,15 @@ export default function PublicTeamPage() {
             </h1>
 
             <p className="mt-2 text-sm text-white/70 sm:mt-3 sm:text-base md:text-lg">
-              {[team.sport, team.season].filter(Boolean).join(" • ")}
+              {[team.sport, team.season]
+                .filter(Boolean)
+                .join(" • ")}
             </p>
 
             <div className="mt-3 flex flex-wrap gap-2 sm:mt-4">
               <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/70 sm:px-3 sm:text-xs sm:tracking-[0.15em]">
-                {team.verification_status || "unverified"}
+                {team.verification_status ||
+                  "unverified"}
               </span>
 
               {team.division && (
@@ -244,8 +470,17 @@ export default function PublicTeamPage() {
                 </span>
               )}
 
+              {getSeasonDateLabel(team.season_start, team.season_end) && (
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/70 sm:px-3 sm:text-xs">
+                  {getSeasonDateLabel(team.season_start, team.season_end)}
+                </span>
+              )}
+
               <span className="rounded-full bg-[#D8F200]/10 px-2.5 py-1 text-[10px] font-semibold text-[#D8F200] sm:px-3 sm:text-xs">
-                {memberships.length} member{memberships.length === 1 ? "" : "s"}
+                {memberships.length} member
+                {memberships.length === 1
+                  ? ""
+                  : "s"}
               </span>
             </div>
 
@@ -254,8 +489,10 @@ export default function PublicTeamPage() {
                 <p className="truncate text-[9px] uppercase text-white/50 sm:text-xs">
                   Association
                 </p>
+
                 <p className="mt-1 truncate text-xs font-bold sm:mt-2 sm:text-base">
-                  {team.association_name || "Not set"}
+                  {team.association_name ||
+                    "Not set"}
                 </p>
               </div>
 
@@ -263,8 +500,10 @@ export default function PublicTeamPage() {
                 <p className="truncate text-[9px] uppercase text-white/50 sm:text-xs">
                   Competition
                 </p>
+
                 <p className="mt-1 truncate text-xs font-bold sm:mt-2 sm:text-base">
-                  {team.competition_name || "Not set"}
+                  {team.competition_name ||
+                    "Not set"}
                 </p>
               </div>
 
@@ -272,9 +511,14 @@ export default function PublicTeamPage() {
                 <p className="truncate text-[9px] uppercase text-white/50 sm:text-xs">
                   Age / Gender
                 </p>
+
                 <p className="mt-1 truncate text-xs font-bold sm:mt-2 sm:text-base">
-                  {[team.age_group, team.gender].filter(Boolean).join(" ") ||
-                    "Not set"}
+                  {[
+                    team.age_group,
+                    team.gender,
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || "Not set"}
                 </p>
               </div>
 
@@ -282,9 +526,14 @@ export default function PublicTeamPage() {
                 <p className="truncate text-[9px] uppercase text-white/50 sm:text-xs">
                   Location
                 </p>
+
                 <p className="mt-1 truncate text-xs font-bold sm:mt-2 sm:text-base">
-                  {[team.state, team.country].filter(Boolean).join(", ") ||
-                    "Not set"}
+                  {[
+                    team.state,
+                    team.country,
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || "Not set"}
                 </p>
               </div>
             </div>
@@ -297,6 +546,7 @@ export default function PublicTeamPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#D8F200] sm:text-xs sm:tracking-[0.2em]">
                     Roster
                   </p>
+
                   <h2 className="mt-1 text-xl font-bold sm:mt-2 sm:text-2xl">
                     Team members
                   </h2>
@@ -306,10 +556,17 @@ export default function PublicTeamPage() {
                   {canInvite && (
                     <button
                       type="button"
-                      onClick={() => setShowInvite((current) => !current)}
+                      onClick={() =>
+                        setShowInvite(
+                          (current) =>
+                            !current
+                        )
+                      }
                       className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-[#D8F200] px-3 py-2 text-xs font-extrabold text-[#0B1F5C] transition hover:brightness-95 sm:min-h-[44px] sm:px-4 sm:text-sm"
                     >
-                      <span className="mr-1 text-base leading-none">+</span>
+                      <span className="mr-1 text-base leading-none">
+                        +
+                      </span>
                       Invite
                     </button>
                   )}
@@ -320,14 +577,24 @@ export default function PublicTeamPage() {
                 </div>
               </div>
 
-              {canInvite && showInvite && (
-                <div className="mt-4">
-                  <InviteTeammates
-                    teamId={team.id}
-                    teamName={team.display_name}
-                  />
-                </div>
-              )}
+              {canInvite &&
+                showInvite && (
+                  <div className="mt-4">
+                    <InviteTeammates
+                      teamId={team.id}
+                      teamName={team.display_name}
+                      viewerId={
+                        athleteContext?.activeAthlete?.id ||
+                        ""
+                      }
+                      canSearchRadr={canSearchRadr}
+                      memberships={memberships}
+                      onMemberAdded={async () => {
+                        window.location.reload();
+                      }}
+                    />
+                  </div>
+                )}
 
               {message && (
                 <div className="mt-4 rounded-xl border border-yellow-300/20 bg-yellow-400/10 p-3 text-xs text-yellow-100 sm:text-sm">
@@ -336,81 +603,119 @@ export default function PublicTeamPage() {
               )}
 
               <div className="mt-4 grid gap-2 sm:grid-cols-2 sm:gap-3 md:mt-5 lg:grid-cols-3">
-                {memberships.length === 0 && (
+                {memberships.length ===
+                  0 && (
                   <div className="rounded-xl bg-[#081642] p-4 text-sm text-white/70 sm:col-span-2 lg:col-span-3">
-                    No active team members are listed yet.
+                    No active team members
+                    are listed yet.
                   </div>
                 )}
 
-                {memberships.map((membership) => {
-                  const profileValue = membership.profiles;
-                  const memberProfile = Array.isArray(profileValue)
-                    ? profileValue[0]
-                    : profileValue;
+                {memberships.map(
+                  (membership) => {
+                    const profileValue =
+                      membership.profiles;
 
-                  const content = (
-                    <div className="flex items-center gap-3">
-                      {memberProfile?.profile_photo_url ? (
-                        <img
-                          src={memberProfile.profile_photo_url}
-                          alt={memberProfile.full_name || "Team member"}
-                          className="h-11 w-11 shrink-0 rounded-lg object-cover sm:h-12 sm:w-12 sm:rounded-xl"
-                        />
-                      ) : (
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/10 text-base font-bold sm:h-12 sm:w-12 sm:rounded-xl sm:text-lg">
-                          {memberProfile?.full_name?.charAt(0) || "A"}
-                        </div>
-                      )}
+                    const memberProfile =
+                      Array.isArray(
+                        profileValue
+                      )
+                        ? profileValue[0]
+                        : profileValue;
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="truncate text-sm font-bold sm:text-base">
-                            {memberProfile?.full_name || "Unnamed member"}
-                          </p>
+                    const content = (
+                      <div className="flex items-center gap-3">
+                        {memberProfile?.profile_photo_url ? (
+                          <img
+                            src={
+                              memberProfile.profile_photo_url
+                            }
+                            alt={
+                              memberProfile.full_name ||
+                              "Team member"
+                            }
+                            className="h-11 w-11 shrink-0 rounded-lg object-cover sm:h-12 sm:w-12 sm:rounded-xl"
+                          />
+                        ) : (
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/10 text-base font-bold sm:h-12 sm:w-12 sm:rounded-xl sm:text-lg">
+                            {memberProfile?.full_name?.charAt(
+                              0
+                            ) || "A"}
+                          </div>
+                        )}
 
-                          {membership.jersey_number !== null &&
-                            membership.jersey_number !== undefined &&
-                            String(membership.jersey_number).trim() !== "" && (
-                              <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/75">
-                                #{membership.jersey_number}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="truncate text-sm font-bold sm:text-base">
+                              {memberProfile?.full_name ||
+                                "Unnamed member"}
+                            </p>
+
+                            {membership.jersey_number !==
+                              null &&
+                              membership.jersey_number !==
+                                undefined &&
+                              String(
+                                membership.jersey_number
+                              ).trim() !==
+                                "" && (
+                                <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/75">
+                                  #
+                                  {
+                                    membership.jersey_number
+                                  }
+                                </span>
+                              )}
+                          </div>
+
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-white/55 sm:text-xs">
+                            {membership.position && (
+                              <span>
+                                {
+                                  membership.position
+                                }
                               </span>
                             )}
-                        </div>
 
-                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-white/55 sm:text-xs">
-                          {membership.position && (
-                            <span>{membership.position}</span>
-                          )}
+                            {membership.position &&
+                              membership.membership_role && (
+                                <span className="text-white/25">
+                                  •
+                                </span>
+                              )}
 
-                          {membership.position && membership.membership_role && (
-                            <span className="text-white/25">•</span>
-                          )}
-
-                          <span className="font-medium text-white/70">
-                            {getRoleLabel(membership.membership_role)}
-                          </span>
+                            <span className="font-medium text-white/70">
+                              {getRoleLabel(
+                                membership.membership_role
+                              )}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
+                    );
 
-                  return memberProfile?.public_slug ? (
-                    <Link
-                      key={membership.id}
-                      href={`/p/${memberProfile.public_slug}`}
-                      className="rounded-xl bg-[#081642] p-3 transition hover:bg-white/10 sm:rounded-2xl sm:p-4"
-                    >
-                      {content}
-                    </Link>
-                  ) : (
-                    <div
-                      key={membership.id}
-                      className="rounded-xl bg-[#081642] p-3 sm:rounded-2xl sm:p-4"
-                    >
-                      {content}
-                    </div>
-                  );
-                })}
+                    return memberProfile?.public_slug ? (
+                      <Link
+                        key={
+                          membership.id
+                        }
+                        href={`/p/${memberProfile.public_slug}`}
+                        className="rounded-xl bg-[#081642] p-3 transition hover:bg-white/10 sm:rounded-2xl sm:p-4"
+                      >
+                        {content}
+                      </Link>
+                    ) : (
+                      <div
+                        key={
+                          membership.id
+                        }
+                        className="rounded-xl bg-[#081642] p-3 sm:rounded-2xl sm:p-4"
+                      >
+                        {content}
+                      </div>
+                    );
+                  }
+                )}
               </div>
             </div>
           </div>

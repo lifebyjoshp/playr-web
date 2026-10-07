@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AppShell from "../../../components/AppShell";
+import { getActiveAthleteContext } from "../../../lib/activeAthlete";
 import { supabase } from "../../../lib/supabase";
 
 type MeasurementType =
@@ -29,6 +30,14 @@ type Profile = {
   preferred_name: string | null;
   date_of_birth: string | null;
 };
+
+function getLocalDateString(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
 
 const MEASUREMENT_TYPES: {
   type: MeasurementType;
@@ -161,6 +170,18 @@ export default function DevelopmentPage() {
   const [profile, setProfile] =
     useState<Profile | null>(null);
 
+  const [authUserId, setAuthUserId] =
+    useState<string | null>(null);
+
+  const [athleteProfileId, setAthleteProfileId] =
+    useState<string | null>(null);
+
+  const [isGuardianManaged, setIsGuardianManaged] =
+    useState(false);
+
+  const [canManageMetrics, setCanManageMetrics] =
+    useState(false);
+
   const [measurements, setMeasurements] =
     useState<Measurement[]>([]);
 
@@ -170,11 +191,7 @@ export default function DevelopmentPage() {
   const [value, setValue] = useState("");
 
   const [recordedDate, setRecordedDate] =
-    useState(
-      new Date()
-        .toISOString()
-        .slice(0, 10)
-    );
+    useState(() => getLocalDateString());
 
   const [notes, setNotes] =
     useState("");
@@ -195,78 +212,116 @@ export default function DevelopmentPage() {
 
   const loadDevelopment = async () => {
     setLoading(true);
+    setMessage("");
 
-    const {
-      data: { user },
-      error: userError,
-    } =
-      await supabase.auth.getUser();
+    try {
+      const context =
+        await getActiveAthleteContext();
 
-    if (userError || !user) {
+      if (!context) {
+        setAuthUserId(null);
+        setAthleteProfileId(null);
+        setProfile(null);
+        setMeasurements([]);
+        setCanManageMetrics(false);
+        setIsGuardianManaged(false);
+        setMessageType("error");
+        setMessage("You must be logged in.");
+        return;
+      }
+
+      setAuthUserId(context.authUserId);
+      setIsGuardianManaged(context.isGuardianManaged);
+
+      if (!context.activeAthlete) {
+        setAthleteProfileId(null);
+        setProfile(null);
+        setMeasurements([]);
+        setCanManageMetrics(false);
+        setMessageType("error");
+        setMessage(
+          context.requiresAthleteSelection
+            ? "Select the athlete you're managing before viewing Athlete Development."
+            : "No athlete profile is connected to this RADR account."
+        );
+        return;
+      }
+
+      const activeAthleteId = context.activeAthlete.id;
+      setAthleteProfileId(activeAthleteId);
+
+      const hasMetricsPermission =
+        context.isSelfManaged ||
+        (context.isGuardianManaged &&
+          context.activeGuardianPermissions?.canManageMetrics === true);
+
+      setCanManageMetrics(hasMetricsPermission);
+
+      const [profileResponse, measurementResponse] =
+        await Promise.all([
+          supabase
+            .from("profiles")
+            .select(`
+              id,
+              full_name,
+              preferred_name,
+              date_of_birth
+            `)
+            .eq("id", activeAthleteId)
+            .single(),
+
+          supabase
+            .from("athlete_measurements")
+            .select("*")
+            .eq("athlete_profile_id", activeAthleteId)
+            .order("recorded_at", {
+              ascending: false,
+            }),
+        ]);
+
+      if (profileResponse.error) {
+        setMessageType("error");
+        setMessage(
+          `Unable to load athlete profile: ${profileResponse.error.message}`
+        );
+        return;
+      }
+
+      setProfile(profileResponse.data as Profile);
+
+      if (measurementResponse.error) {
+        setMessageType("error");
+        setMessage(
+          `Unable to load AD: ${measurementResponse.error.message}`
+        );
+        return;
+      }
+
+      setMeasurements(
+        (measurementResponse.data || []) as Measurement[]
+      );
+
+      if (!hasMetricsPermission) {
+        setMessageType("info");
+        setMessage(
+          `You can view ${
+            context.activeAthlete.preferred_name ||
+            context.activeAthlete.full_name ||
+            "this athlete"
+          }'s AD, but you do not have permission to update measurements.`
+        );
+      }
+    } catch (error) {
+      console.error("Unable to load Athlete Development:", error);
       setMessageType("error");
       setMessage(
-        "You must be logged in."
+        error instanceof Error
+          ? error.message
+          : "Unable to load Athlete Development."
       );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const [
-      profileResponse,
-      measurementResponse,
-    ] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select(
-          `
-          id,
-          full_name,
-          preferred_name,
-          date_of_birth
-        `
-        )
-        .eq("id", user.id)
-        .single(),
-
-      supabase
-        .from(
-          "athlete_measurements"
-        )
-        .select("*")
-        .eq(
-          "athlete_profile_id",
-          user.id
-        )
-        .order("recorded_at", {
-          ascending: false,
-        }),
-    ]);
-
-    if (
-      profileResponse.data
-    ) {
-      setProfile(
-        profileResponse.data as Profile
-      );
-    }
-
-    if (
-      measurementResponse.error
-    ) {
-      setMessageType("error");
-      setMessage(
-        `Unable to load AD: ${measurementResponse.error.message}`
-      );
-      setLoading(false);
-      return;
-    }
-
-    setMeasurements(
-      (measurementResponse.data ||
-        []) as Measurement[]
-    );
-
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -447,15 +502,18 @@ export default function DevelopmentPage() {
         return;
       }
 
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getUser();
-
-      if (!user) {
+      if (!authUserId || !athleteProfileId) {
         setMessageType("error");
         setMessage(
-          "You must be logged in."
+          "No active athlete is available."
+        );
+        return;
+      }
+
+      if (!canManageMetrics) {
+        setMessageType("error");
+        setMessage(
+          "You do not have permission to update measurements for this athlete."
         );
         return;
       }
@@ -472,7 +530,7 @@ export default function DevelopmentPage() {
       setSaving(true);
       setMessageType("info");
       setMessage(
-        "Updating your AD..."
+        "Updating AD..."
       );
 
       const { error } =
@@ -482,7 +540,7 @@ export default function DevelopmentPage() {
           )
           .insert({
             athlete_profile_id:
-              user.id,
+              athleteProfileId,
             measurement_type:
               selectedType,
             value:
@@ -491,7 +549,7 @@ export default function DevelopmentPage() {
             recorded_at:
               `${recordedDate}T12:00:00`,
             recorded_by:
-              user.id,
+              authUserId,
             notes:
               notes.trim() ||
               null,
@@ -556,6 +614,15 @@ export default function DevelopmentPage() {
               long-term record of
               athlete growth.
             </p>
+
+            {isGuardianManaged && profile && (
+              <div className="mt-4 inline-flex rounded-full border border-[#D8F200]/20 bg-[#D8F200]/10 px-3 py-1.5 text-xs font-bold text-[#D8F200]">
+                Managing{" "}
+                {profile.preferred_name ||
+                  profile.full_name ||
+                  "athlete"}
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border border-[#D8F200]/20 bg-[#D8F200]/10 px-5 py-4">
@@ -965,6 +1032,19 @@ export default function DevelopmentPage() {
               Add Measurement
             </h2>
 
+            {!canManageMetrics ? (
+              <div className="mt-6 rounded-2xl border border-white/10 bg-[#081642] p-5">
+                <p className="font-bold">
+                  View only
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-white/60">
+                  You can view this athlete&apos;s
+                  development record, but you do not
+                  have permission to add measurements.
+                </p>
+              </div>
+            ) : (
             <form
               onSubmit={
                 handleAddMeasurement
@@ -1052,12 +1132,7 @@ export default function DevelopmentPage() {
                   value={
                     recordedDate
                   }
-                  max={new Date()
-                    .toISOString()
-                    .slice(
-                      0,
-                      10
-                    )}
+                  max={getLocalDateString()}
                   onChange={(
                     event
                   ) =>
@@ -1104,6 +1179,7 @@ export default function DevelopmentPage() {
                   : "Update AD"}
               </button>
             </form>
+            )}
           </aside>
         </div>
       </section>

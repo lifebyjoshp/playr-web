@@ -1,46 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../lib/supabase";
-import { BRAND } from "../lib/branding";
-
-type AthleteSearchResult = {
-  id: string;
-  full_name: string | null;
-  public_slug: string | null;
-  headline: string | null;
-  primary_sport: string | null;
-  state: string | null;
-  country: string | null;
-  profile_photo_url: string | null;
-};
-
-type ExistingMembership = {
-  profile_id: string;
-};
+import { BRAND } from "../../lib/branding";
+import { supabase } from "../../lib/supabase";
+import { TEAM_ROLES } from "./teamRoles";
+import type { AthleteSearchResult } from "./teamTypes";
 
 type TeamMemberSearchProps = {
   teamId: string;
   viewerId: string;
   canManage: boolean;
-  memberships: ExistingMembership[];
+  memberships: Array<{ profile_id: string }>;
   onMemberAdded: () => Promise<void>;
+  compact?: boolean;
 };
-
-const teamRoles = [
-  { value: "athlete", label: "Athlete" },
-  { value: "captain", label: "Captain" },
-  { value: "vice_captain", label: "Vice Captain" },
-  { value: "head_coach", label: "Head Coach" },
-  { value: "assistant_coach", label: "Assistant Coach" },
-  { value: "manager", label: "Manager" },
-  { value: "admin", label: "Team Admin" },
-  { value: "trainer", label: "Trainer" },
-  { value: "physio", label: "Physio" },
-  { value: "statistician", label: "Statistician" },
-  { value: "parent_guardian", label: "Parent / Guardian" },
-  { value: "volunteer", label: "Volunteer" },
-];
 
 export default function TeamMemberSearch({
   teamId,
@@ -48,16 +21,15 @@ export default function TeamMemberSearch({
   canManage,
   memberships,
   onMemberAdded,
+  compact = false,
 }: TeamMemberSearchProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [results, setResults] = useState<AthleteSearchResult[]>([]);
-  const [selectedAthlete, setSelectedAthlete] =
+  const [selectedMember, setSelectedMember] =
     useState<AthleteSearchResult | null>(null);
   const [selectedRole, setSelectedRole] = useState("athlete");
-
   const [searching, setSearching] = useState(false);
   const [adding, setAdding] = useState(false);
-
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<
     "success" | "error" | "info"
@@ -77,24 +49,14 @@ export default function TeamMemberSearch({
       return;
     }
 
-    const searchTimer = window.setTimeout(async () => {
+    const timer = window.setTimeout(async () => {
       setSearching(true);
       setMessage("");
-      setSelectedAthlete(null);
 
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          `
-          id,
-          full_name,
-          public_slug,
-          headline,
-          primary_sport,
-          state,
-          country,
-          profile_photo_url
-        `
+          "id, full_name, public_slug, headline, primary_sport, state, country, profile_photo_url"
         )
         .eq("is_public", true)
         .neq("id", viewerId)
@@ -104,35 +66,22 @@ export default function TeamMemberSearch({
 
       if (error) {
         setMessageType("error");
-        setMessage(`Unable to search athletes: ${error.message}`);
+        setMessage(`Unable to search RADR members: ${error.message}`);
         setResults([]);
         setSearching(false);
         return;
       }
 
-      const availableAthletes = (data || []).filter(
-        (athlete) => !existingProfileIds.has(athlete.id)
+      const availableMembers = (data || []).filter(
+        (member) => !existingProfileIds.has(member.id)
       );
 
-      setResults(availableAthletes);
+      setResults(availableMembers);
       setSearching(false);
     }, 350);
 
-    return () => {
-      window.clearTimeout(searchTimer);
-    };
-  }, [searchTerm, canManage, viewerId, existingProfileIds]);
-
-  const handleSelectAthlete = (athlete: AthleteSearchResult) => {
-    setSelectedAthlete(athlete);
-    setSelectedRole("athlete");
-    setMessage("");
-  };
-
-  const handleClearSelection = () => {
-    setSelectedAthlete(null);
-    setSelectedRole("athlete");
-  };
+    return () => window.clearTimeout(timer);
+  }, [canManage, existingProfileIds, searchTerm, viewerId]);
 
   const handleAddMember = async () => {
     if (!canManage) {
@@ -141,15 +90,15 @@ export default function TeamMemberSearch({
       return;
     }
 
-    if (!selectedAthlete) {
+    if (!selectedMember) {
       setMessageType("error");
-      setMessage("Select an athlete first.");
+      setMessage("Select a RADR member first.");
       return;
     }
 
-    if (existingProfileIds.has(selectedAthlete.id)) {
+    if (existingProfileIds.has(selectedMember.id)) {
       setMessageType("error");
-      setMessage("This athlete is already connected to the team.");
+      setMessage("This person is already connected to the team.");
       return;
     }
 
@@ -160,7 +109,7 @@ export default function TeamMemberSearch({
     const { error } = await supabase
       .from("player_team_memberships")
       .insert({
-        profile_id: selectedAthlete.id,
+        profile_id: selectedMember.id,
         team_id: teamId,
         position: null,
         is_current: true,
@@ -177,50 +126,54 @@ export default function TeamMemberSearch({
       return;
     }
 
-    const athleteName = selectedAthlete.full_name || "Athlete";
+    const name = selectedMember.full_name || "Team member";
 
     await onMemberAdded();
 
-    setMessageType("success");
-    setMessage(`${athleteName} was added to the team.`);
     setSearchTerm("");
     setResults([]);
-    setSelectedAthlete(null);
+    setSelectedMember(null);
     setSelectedRole("athlete");
+    setMessageType("success");
+    setMessage(`${name} was added to the team.`);
     setAdding(false);
   };
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur md:p-8">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
-          Build Your Team
-        </p>
+    <div
+      className={
+        compact
+          ? "rounded-2xl border border-[#D8F200]/20 bg-[#081642] p-5"
+          : "rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur md:p-8"
+      }
+    >
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
+        {compact ? "Add Existing Member" : "Build Your Team"}
+      </p>
 
-        <h2 className="mt-3 text-2xl font-bold">
-          Search RADR members
-        </h2>
+      <h2 className={`${compact ? "mt-2 text-xl" : "mt-3 text-2xl"} font-bold`}>
+        Search {BRAND.name}
+      </h2>
 
-        <p className="mt-2 text-sm text-white/65">
-          Search by name for an athlete, coach, manager, parent or other team
-          member who already has a public RADR profile.
-        </p>
-      </div>
+      <p className="mt-2 text-sm text-white/65">
+        Search by name for an athlete, coach, manager, parent or another team
+        member who already has a public profile.
+      </p>
 
       <div className="mt-6">
-        <label className="mb-2 block text-sm font-medium">
-          Search by name
-        </label>
-
+        <label className="mb-2 block text-sm font-medium">Search by name</label>
         <input
           type="search"
           value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
+          onChange={(event) => {
+            setSearchTerm(event.target.value);
+            setSelectedMember(null);
+            setMessage("");
+          }}
           placeholder="Start typing a name..."
           disabled={!canManage}
           className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 text-white placeholder:text-white/40 outline-none disabled:opacity-60"
         />
-
         <p className="mt-2 text-xs text-white/50">
           Enter at least two characters.
         </p>
@@ -228,65 +181,63 @@ export default function TeamMemberSearch({
 
       {searching && (
         <div className="mt-4 rounded-xl bg-[#081642] p-4 text-sm text-white/65">
-          Searching RADR...
+          Searching {BRAND.name}...
         </div>
       )}
 
       {!searching &&
         searchTerm.trim().length >= 2 &&
         results.length === 0 &&
-        !selectedAthlete &&
+        !selectedMember &&
         !message && (
           <div className="mt-4 rounded-xl bg-[#081642] p-4">
-            <p className="font-semibold">No available RADR members found</p>
-
+            <p className="font-semibold">No available members found</p>
             <p className="mt-2 text-sm text-white/60">
-              Check the spelling or try their full name. Email and mobile
-              invitations will be added in the next development area.
+              Check the spelling or try the person&apos;s full name. If they are
+              not on RADR yet, use the team invite link.
             </p>
           </div>
         )}
 
-      {!selectedAthlete && results.length > 0 && (
+      {!selectedMember && results.length > 0 && (
         <div className="mt-5 space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">
             Search results
           </p>
 
-          {results.map((athlete) => (
+          {results.map((member) => (
             <button
-              key={athlete.id}
+              key={member.id}
               type="button"
-              onClick={() => handleSelectAthlete(athlete)}
+              onClick={() => {
+                setSelectedMember(member);
+                setSelectedRole("athlete");
+                setMessage("");
+              }}
               className="flex w-full items-center gap-4 rounded-2xl bg-[#081642] p-4 text-left transition hover:bg-white/15"
             >
-              {athlete.profile_photo_url ? (
+              {member.profile_photo_url ? (
                 <img
-                  src={athlete.profile_photo_url}
-                  alt={athlete.full_name || "RADR member"}
+                  src={member.profile_photo_url}
+                  alt={member.full_name || "RADR member"}
                   className="h-14 w-14 shrink-0 rounded-xl object-cover"
                 />
               ) : (
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white/10 text-xl font-bold">
-                  {athlete.full_name?.charAt(0) || "R"}
+                  {member.full_name?.charAt(0) || "R"}
                 </div>
               )}
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-lg font-bold">
-                  {athlete.full_name || "Unnamed RADR Member"}
+                  {member.full_name || "Unnamed RADR member"}
                 </p>
-
                 <p className="mt-1 truncate text-sm text-white/65">
-                  {athlete.headline ||
-                    athlete.primary_sport ||
-                    "RADR member"}
+                  {member.headline || member.primary_sport || "RADR member"}
                 </p>
-
                 <p className="mt-1 text-xs text-white/45">
-                  {[athlete.state, athlete.country]
-                    .filter(Boolean)
-                    .join(", ") || "Location not listed"}
+                  {[member.state, member.country].filter(Boolean).join(", ") ||
+                    "Location not listed"}
                 </p>
               </div>
 
@@ -298,18 +249,18 @@ export default function TeamMemberSearch({
         </div>
       )}
 
-      {selectedAthlete && (
+      {selectedMember && (
         <div className="mt-6 rounded-2xl border border-[#D8F200]/25 bg-[#081642] p-5">
           <div className="flex items-start gap-4">
-            {selectedAthlete.profile_photo_url ? (
+            {selectedMember.profile_photo_url ? (
               <img
-                src={selectedAthlete.profile_photo_url}
-                alt={selectedAthlete.full_name || "Selected member"}
+                src={selectedMember.profile_photo_url}
+                alt={selectedMember.full_name || "Selected member"}
                 className="h-16 w-16 shrink-0 rounded-xl object-cover"
               />
             ) : (
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-white/10 text-2xl font-bold">
-                {selectedAthlete.full_name?.charAt(0) || "R"}
+                {selectedMember.full_name?.charAt(0) || "R"}
               </div>
             )}
 
@@ -317,21 +268,22 @@ export default function TeamMemberSearch({
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#D8F200]">
                 Selected member
               </p>
-
               <h3 className="mt-2 text-xl font-bold">
-                {selectedAthlete.full_name || "Unnamed RADR Member"}
+                {selectedMember.full_name || "Unnamed RADR member"}
               </h3>
-
               <p className="mt-1 text-sm text-white/65">
-                {selectedAthlete.headline ||
-                  selectedAthlete.primary_sport ||
+                {selectedMember.headline ||
+                  selectedMember.primary_sport ||
                   "RADR member"}
               </p>
             </div>
 
             <button
               type="button"
-              onClick={handleClearSelection}
+              onClick={() => {
+                setSelectedMember(null);
+                setSelectedRole("athlete");
+              }}
               className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold"
             >
               Change
@@ -339,16 +291,13 @@ export default function TeamMemberSearch({
           </div>
 
           <div className="mt-5">
-            <label className="mb-2 block text-sm font-medium">
-              Team role
-            </label>
-
+            <label className="mb-2 block text-sm font-medium">Team role</label>
             <select
               value={selectedRole}
               onChange={(event) => setSelectedRole(event.target.value)}
               className="w-full rounded-xl border border-white/10 bg-[#0B1F5C] px-4 py-3 text-white"
             >
-              {teamRoles.map((role) => (
+              {TEAM_ROLES.map((role) => (
                 <option key={role.value} value={role.value}>
                   {role.label}
                 </option>
@@ -358,7 +307,7 @@ export default function TeamMemberSearch({
 
           <button
             type="button"
-            onClick={handleAddMember}
+            onClick={() => void handleAddMember()}
             disabled={adding}
             className="mt-5 w-full rounded-xl bg-[#D8F200] px-6 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
           >

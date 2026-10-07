@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import AppShell from "../../components/AppShell";
+import { getActiveAthleteContext } from "../../lib/activeAthlete";
 
 type Profile = {
   id: string;
@@ -20,7 +21,8 @@ type Profile = {
   profile_photo_url: string | null;
   school_name: string | null;
   eligible_countries: string[] | null;
-  languages: string[] | null;
+    languages: string[] | null;
+  account_type?: string | null;
 };
 
 type Measurement = {
@@ -123,121 +125,159 @@ export default function DashboardPage() {
       setLoading(true);
       setMessage("");
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      try {
+        const context = await getActiveAthleteContext();
 
-      if (userError || !user) {
-        setMessage(
-          "Could not load your RADR account."
-        );
-        setLoading(false);
-        return;
-      }
+        if (!context) {
+          setProfile(null);
+          setMessage("Could not load your RADR account.");
+          return;
+        }
 
-      const [
-        profileResponse,
-        measurementResponse,
-        achievementResponse,
-        highlightResponse,
-        experienceResponse,
-      ] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select(
+        if (context.requiresAthleteSelection) {
+          setProfile(null);
+          setMessage("Choose an athlete to open their RADR dashboard.");
+          return;
+        }
+
+        if (!context.activeAthlete) {
+          setProfile(null);
+          setMessage(
+            "No athlete profile is connected to this RADR account yet."
+          );
+          return;
+        }
+
+        const athleteId = context.activeAthlete.id;
+
+        /*
+         * authUserId = who is logged in.
+         * athleteId  = whose RADR is being displayed.
+         *
+         * These are the same for a self-managed athlete and
+         * intentionally different for a guardian-managed athlete.
+         */
+
+        const { data: athleteProfile, error: athleteProfileError } =
+          await supabase
+            .from("profiles")
+            .select(
+              `
+              id,
+              full_name,
+              preferred_name,
+              email,
+              primary_sport,
+              position,
+              public_slug,
+              headline,
+              bio,
+              state,
+              country,
+              profile_photo_url,
+              school_name,
+              eligible_countries,
+              languages,
+              account_type
             `
-            id,
-            full_name,
-            preferred_name,
-            email,
-            primary_sport,
-            position,
-            public_slug,
-            headline,
-            bio,
-            state,
-            country,
-            profile_photo_url,
-            school_name,
-            eligible_countries,
-            languages
-          `
-          )
-          .eq("id", user.id)
-          .single(),
+            )
+            .eq("id", athleteId)
+            .maybeSingle();
 
-        supabase
-          .from("athlete_measurements")
-          .select(
+        if (athleteProfileError || !athleteProfile) {
+          setProfile(null);
+          setMessage("Could not load the active athlete profile.");
+          return;
+        }
+
+        const [
+          measurementResponse,
+          achievementResponse,
+          highlightResponse,
+          experienceResponse,
+        ] = await Promise.all([
+          supabase
+            .from("athlete_measurements")
+            .select(
+              `
+              id,
+              measurement_type,
+              value,
+              unit,
+              recorded_at
             `
-            id,
-            measurement_type,
-            value,
-            unit,
-            recorded_at
-          `
-          )
-          .eq(
-            "athlete_profile_id",
-            user.id
-          )
-          .order("recorded_at", {
-            ascending: false,
-          }),
+            )
+            .eq("athlete_profile_id", athleteId)
+            .order("recorded_at", { ascending: false }),
 
-        supabase
-          .from("achievements")
-          .select("id")
-          .eq("profile_id", user.id),
+          supabase
+            .from("achievements")
+            .select("id")
+            .eq("profile_id", athleteId),
 
-        supabase
-          .from("highlights")
-          .select("id")
-          .eq("profile_id", user.id),
+          supabase
+            .from("highlights")
+            .select("id")
+            .eq("profile_id", athleteId),
 
-        supabase
-          .from("player_team_memberships")
-          .select("id")
-          .eq("profile_id", user.id),
-      ]);
+          supabase
+            .from("player_team_memberships")
+            .select("id")
+            .eq("profile_id", athleteId),
+        ]);
 
-      if (
-        profileResponse.error ||
-        !profileResponse.data
-      ) {
-        setMessage(
-          "Could not load profile data."
+        if (measurementResponse.error) {
+          console.error(
+            "Unable to load athlete measurements:",
+            measurementResponse.error
+          );
+        }
+
+        if (achievementResponse.error) {
+          console.error(
+            "Unable to load athlete achievements:",
+            achievementResponse.error
+          );
+        }
+
+        if (highlightResponse.error) {
+          console.error(
+            "Unable to load athlete highlights:",
+            highlightResponse.error
+          );
+        }
+
+        if (experienceResponse.error) {
+          console.error(
+            "Unable to load athlete team experience:",
+            experienceResponse.error
+          );
+        }
+
+        setProfile(athleteProfile as Profile);
+        setMeasurements(
+          (measurementResponse.data || []) as Measurement[]
         );
+        setAchievementCount(
+          achievementResponse.data?.length || 0
+        );
+        setHighlightCount(
+          highlightResponse.data?.length || 0
+        );
+        setExperienceCount(
+          experienceResponse.data?.length || 0
+        );
+      } catch (error) {
+        console.error("Unable to load RADR dashboard:", error);
+        setProfile(null);
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not load your RADR dashboard."
+        );
+      } finally {
         setLoading(false);
-        return;
       }
-
-      setProfile(
-        profileResponse.data as Profile
-      );
-
-      setMeasurements(
-        (measurementResponse.data ||
-          []) as Measurement[]
-      );
-
-      setAchievementCount(
-        achievementResponse.data?.length ||
-          0
-      );
-
-      setHighlightCount(
-        highlightResponse.data?.length ||
-          0
-      );
-
-      setExperienceCount(
-        experienceResponse.data?.length ||
-          0
-      );
-
-      setLoading(false);
     };
 
     void loadDashboard();

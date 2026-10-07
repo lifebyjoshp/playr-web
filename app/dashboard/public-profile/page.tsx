@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AppShell from "../../../components/AppShell";
 import { BRAND } from "../../../lib/branding";
 import { supabase } from "../../../lib/supabase";
+import { getActiveAthleteContext } from "../../../lib/activeAthlete";
 
 function cleanList(values: string[]) {
   return Array.from(
@@ -24,6 +25,7 @@ export default function PublicProfilePage() {
   const [stateRegion, setStateRegion] = useState("");
   const [country, setCountry] = useState("");
   const [schoolName, setSchoolName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
 
   const [eligibleCountries, setEligibleCountries] = useState<string[]>([]);
   const [newEligibleCountry, setNewEligibleCountry] = useState("");
@@ -32,6 +34,7 @@ export default function PublicProfilePage() {
   const [newLanguage, setNewLanguage] = useState("");
 
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
+  const [athleteProfileId, setAthleteProfileId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -43,16 +46,25 @@ export default function PublicProfilePage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const context = await getActiveAthleteContext();
 
-      if (!user) return;
+      if (!context || context.requiresAthleteSelection || !context.activeAthlete) {
+        setMessageType("error");
+        setMessage(
+          context?.requiresAthleteSelection
+            ? "Choose an athlete before editing a profile."
+            : "No athlete profile is connected to this RADR account yet."
+        );
+        return;
+      }
+
+      const activeAthleteId = context.activeAthlete.id;
+      setAthleteProfileId(activeAthleteId);
 
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", user.id)
+        .eq("id", activeAthleteId)
         .single();
 
       if (error || !data) return;
@@ -69,6 +81,7 @@ export default function PublicProfilePage() {
       setStateRegion(data.state || "");
       setCountry(data.country || "");
       setSchoolName(data.school_name || "");
+      setDateOfBirth(data.date_of_birth || "");
 
       setEligibleCountries(
         Array.isArray(data.eligible_countries)
@@ -99,19 +112,15 @@ export default function PublicProfilePage() {
     setMessage("Uploading image...");
     setMessageType("info");
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
+    if (!athleteProfileId) {
       setMessageType("error");
-      setMessage("You must be logged in.");
+      setMessage("No active athlete profile is available.");
       setUploadingImage(false);
       return;
     }
 
     const fileExt = file.name.split(".").pop() || "jpg";
-    const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+    const fileName = `${athleteProfileId}-${Date.now()}.${fileExt}`;
     const filePath = `profiles/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
@@ -136,7 +145,7 @@ export default function PublicProfilePage() {
       .update({
         profile_photo_url: publicUrl,
       })
-      .eq("id", user.id);
+      .eq("id", athleteProfileId);
 
     if (profileUpdateError) {
       setMessageType("error");
@@ -194,22 +203,16 @@ export default function PublicProfilePage() {
     setMessage("Saving profile...");
     setMessageType("info");
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
+    if (!athleteProfileId) {
       setMessageType("error");
-      setMessage("You must be logged in.");
+      setMessage("No active athlete profile is available.");
       setLoading(false);
       return;
     }
 
     const { error } = await supabase
       .from("profiles")
-      .upsert({
-        id: user.id,
-        email: user.email,
+      .update({
         full_name: fullName,
         preferred_name: preferredName || null,
         headline,
@@ -221,10 +224,12 @@ export default function PublicProfilePage() {
         state: stateRegion,
         country,
         school_name: schoolName || null,
+        date_of_birth: dateOfBirth || null,
         eligible_countries: cleanList(eligibleCountries),
         languages: cleanList(languages),
         profile_photo_url: profilePhotoUrl,
-      });
+      })
+      .eq("id", athleteProfileId);
 
     if (error) {
       setMessageType("error");
@@ -319,6 +324,38 @@ export default function PublicProfilePage() {
                 className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
               />
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-[#081642] p-5">
+            <label className="block text-sm font-medium">
+              Date of Birth
+            </label>
+
+            <p className="mt-1 text-xs leading-5 text-white/55">
+              Used to calculate athlete age and development data. Your full
+              date of birth is private and will not be displayed publicly.
+            </p>
+
+            <input
+              type="date"
+              value={dateOfBirth}
+              onChange={(event) =>
+                setDateOfBirth(event.target.value)
+              }
+              className="mt-4 w-full rounded-xl bg-[#0B1F5C] px-4 py-3 outline-none md:max-w-sm"
+            />
+
+            {dateOfBirth && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full bg-white/10 px-3 py-1.5 text-white/70">
+                  Full DOB: Private
+                </span>
+
+                <span className="rounded-full bg-[#D8F200]/10 px-3 py-1.5 font-semibold text-[#D8F200]">
+                  Public birth year: {dateOfBirth.slice(0, 4)}
+                </span>
+              </div>
+            )}
           </div>
 
           <div>

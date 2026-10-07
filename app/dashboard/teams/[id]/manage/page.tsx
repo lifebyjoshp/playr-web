@@ -16,6 +16,9 @@ import type {
   Team,
   TeamFormValues,
 } from "../../../../../components/team/teamTypes";
+import {
+  getActiveAthleteContext,
+} from "../../../../../lib/activeAthlete";
 import { supabase } from "../../../../../lib/supabase";
 
 const EMPTY_FORM: TeamFormValues = {
@@ -30,6 +33,8 @@ const EMPTY_FORM: TeamFormValues = {
   gender: "",
   division: "",
   season: "",
+  seasonStart: "",
+  seasonEnd: "",
   isPublic: true,
 };
 
@@ -54,6 +59,8 @@ function teamToForm(team: Team): TeamFormValues {
     gender: team.gender || "",
     division: team.division || "",
     season: team.season || "",
+    seasonStart: team.season_start || "",
+    seasonEnd: team.season_end || "",
     isPublic: team.is_public ?? true,
   };
 }
@@ -62,22 +69,68 @@ export default function ManageTeamPage() {
   const params = useParams<{ id: string }>();
   const teamId = params.id;
 
-  const [team, setTeam] = useState<Team | null>(null);
-  const [memberships, setMemberships] = useState<Membership[]>([]);
-  const [viewerId, setViewerId] = useState<string | null>(null);
-  const [viewerRole, setViewerRole] = useState<string | null>(null);
-  const [form, setForm] = useState<TeamFormValues>(EMPTY_FORM);
-  const [loading, setLoading] = useState(true);
-  const [savingTeam, setSavingTeam] = useState(false);
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<MessageType>("info");
+  const [team, setTeam] =
+    useState<Team | null>(null);
 
-  const canManage = TEAM_MANAGER_ROLES.includes(
-    (viewerRole || "") as (typeof TEAM_MANAGER_ROLES)[number]
-  );
+  const [memberships, setMemberships] =
+    useState<Membership[]>([]);
+
+  /*
+   * The athlete whose team membership / role RADR
+   * is currently operating against.
+   *
+   * Self-managed:
+   * actingAthleteId = logged-in athlete
+   *
+   * Guardian-managed:
+   * actingAthleteId = managed athlete
+   *
+   * The parent does NOT become a team member.
+   */
+  const [
+    actingAthleteId,
+    setActingAthleteId,
+  ] = useState<string | null>(null);
+
+  const [
+    actingAthleteName,
+    setActingAthleteName,
+  ] = useState<string | null>(null);
+
+  const [
+    isGuardianManaged,
+    setIsGuardianManaged,
+  ] = useState(false);
+
+  const [viewerRole, setViewerRole] =
+    useState<string | null>(null);
+
+  const [form, setForm] =
+    useState<TeamFormValues>(EMPTY_FORM);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [savingTeam, setSavingTeam] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [messageType, setMessageType] =
+    useState<MessageType>("info");
+
+  const canManage =
+    TEAM_MANAGER_ROLES.includes(
+      (viewerRole ||
+        "") as (typeof TEAM_MANAGER_ROLES)[number]
+    );
 
   const setStatusMessage = useCallback(
-    (text: string, type: MessageType = "info") => {
+    (
+      text: string,
+      type: MessageType = "info"
+    ) => {
       setMessage(text);
       setMessageType(type);
     },
@@ -88,128 +141,324 @@ export default function ManageTeamPage() {
     setLoading(true);
     setMessage("");
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    try {
+      /*
+       * ----------------------------------------------
+       * 1. Resolve RADR active athlete.
+       * ----------------------------------------------
+       */
+      const context =
+        await getActiveAthleteContext();
 
-    if (userError || !user) {
-      setStatusMessage("You must be logged in to manage a team.", "error");
-      setLoading(false);
-      return;
-    }
+      if (!context) {
+        setTeam(null);
 
-    setViewerId(user.id);
+        setStatusMessage(
+          "You must be logged in to manage a team.",
+          "error"
+        );
 
-    const { data: teamData, error: teamError } = await supabase
-      .from("teams")
-      .select(
-        "id, slug, display_name, sport, country, state, association_name, competition_name, club_name, team_name, age_group, gender, division, season, is_public, verification_status, created_by"
-      )
-      .eq("id", teamId)
-      .single();
+        return;
+      }
 
-    if (teamError || !teamData) {
-      setTeam(null);
-      setStatusMessage(
-        `Unable to load team: ${teamError?.message || "Team not found."}`,
-        "error"
+      const activeAthlete =
+        context.activeAthlete;
+
+      if (!activeAthlete) {
+        setTeam(null);
+        setActingAthleteId(null);
+        setActingAthleteName(null);
+        setViewerRole(null);
+
+        setStatusMessage(
+          context.requiresAthleteSelection
+            ? "Select an athlete before managing a team."
+            : "No athlete profile is available for this account.",
+          "error"
+        );
+
+        return;
+      }
+
+      setActingAthleteId(
+        activeAthlete.id
       );
-      setLoading(false);
-      return;
-    }
 
-    const loadedTeam = teamData as Team;
-    setTeam(loadedTeam);
-    setForm(teamToForm(loadedTeam));
+      setActingAthleteName(
+        activeAthlete.full_name ||
+          activeAthlete.preferred_name ||
+          null
+      );
 
-    const { data: membershipData, error: membershipError } = await supabase
-      .from("player_team_memberships")
-      .select(
-        `
-        id,
-        profile_id,
-        position,
-        jersey_number,
-        is_current,
-        membership_role,
-        membership_status,
-        joined_at,
-        profiles!player_team_memberships_profile_id_fkey (
-          id,
-          full_name,
-          public_slug,
-          headline,
-          profile_photo_url,
-          primary_sport,
-          position
+      setIsGuardianManaged(
+        context.isGuardianManaged
+      );
+
+      /*
+       * Guardian access to team-management functions
+       * also requires canManageTeams for the active
+       * athlete.
+       */
+      if (
+        context.isGuardianManaged &&
+        context.activeGuardianPermissions
+          ?.canManageTeams !== true
+      ) {
+        setViewerRole(null);
+      }
+
+      /*
+       * ----------------------------------------------
+       * 2. Load team.
+       * ----------------------------------------------
+       */
+      const {
+        data: teamData,
+        error: teamError,
+      } = await supabase
+        .from("teams")
+        .select(
+          "id, slug, display_name, sport, country, state, association_name, competition_name, club_name, team_name, age_group, gender, division, season, season_start, season_end, is_public, verification_status, created_by"
         )
-      `
-      )
-      .eq("team_id", teamId)
-      .order("created_at", { ascending: true });
+        .eq("id", teamId)
+        .single();
 
-    if (membershipError) {
+      if (teamError || !teamData) {
+        setTeam(null);
+
+        setStatusMessage(
+          `Unable to load team: ${
+            teamError?.message ||
+            "Team not found."
+          }`,
+          "error"
+        );
+
+        return;
+      }
+
+      const loadedTeam =
+        teamData as Team;
+
+      setTeam(loadedTeam);
+      setForm(
+        teamToForm(loadedTeam)
+      );
+
+      /*
+       * ----------------------------------------------
+       * 3. Load roster.
+       *
+       * Our guardian-aware RLS now allows an authorised
+       * guardian to read the roster when the active
+       * athlete has team-management authority.
+       * ----------------------------------------------
+       */
+      const {
+        data: membershipData,
+        error: membershipError,
+      } = await supabase
+        .from(
+          "player_team_memberships"
+        )
+        .select(
+          `
+          id,
+          profile_id,
+          position,
+          jersey_number,
+          is_current,
+          membership_role,
+          membership_status,
+          joined_at,
+          profiles!player_team_memberships_profile_id_fkey (
+            id,
+            full_name,
+            public_slug,
+            headline,
+            profile_photo_url,
+            primary_sport,
+            position
+          )
+        `
+        )
+        .eq("team_id", teamId)
+        .order("created_at", {
+          ascending: true,
+        });
+
+      if (membershipError) {
+        setMemberships([]);
+
+        setStatusMessage(
+          `Team loaded, but roster could not be loaded: ${membershipError.message}`,
+          "error"
+        );
+
+        return;
+      }
+
+      const loadedMemberships =
+        (membershipData ||
+          []) as unknown as Membership[];
+
+      setMemberships(
+        loadedMemberships
+      );
+
+      /*
+       * ----------------------------------------------
+       * 4. Find ACTIVE ATHLETE membership.
+       *
+       * This is the key identity rule.
+       *
+       * We no longer:
+       * - assume auth.uid() is the athlete
+       * - independently search guardian_links
+       * - choose the first managed child on the team
+       *
+       * activeAthlete.ts already decided whose
+       * sporting identity RADR is operating against.
+       * ----------------------------------------------
+       */
+      const activeMembership =
+        loadedMemberships.find(
+          (membership) =>
+            membership.profile_id ===
+              activeAthlete.id &&
+            membership.membership_status ===
+              "active"
+        );
+
+      if (!activeMembership) {
+        setViewerRole(null);
+
+        setStatusMessage(
+          `${activeAthlete.full_name || "The active athlete"} is not an active member of this team.`,
+          "info"
+        );
+
+        return;
+      }
+
+      /*
+       * Guardian must have explicit team permission.
+       */
+      if (
+        context.isGuardianManaged &&
+        context.activeGuardianPermissions
+          ?.canManageTeams !== true
+      ) {
+        setViewerRole(null);
+
+        setStatusMessage(
+          `You can view ${activeAthlete.full_name || "this athlete"}'s team, but you do not have permission to manage their teams.`,
+          "info"
+        );
+
+        return;
+      }
+
+      /*
+       * The athlete's membership role determines
+       * whether this team can actually be managed.
+       */
+      setViewerRole(
+        activeMembership.membership_role ||
+          null
+      );
+    } catch (error) {
+      console.error(
+        "Unable to load team management:",
+        error
+      );
+
+      setTeam(null);
       setMemberships([]);
+      setActingAthleteId(null);
+      setActingAthleteName(null);
+      setIsGuardianManaged(false);
+      setViewerRole(null);
+
       setStatusMessage(
-        `Team loaded, but roster could not be loaded: ${membershipError.message}`,
+        error instanceof Error
+          ? error.message
+          : "Unable to load team management.",
         "error"
       );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const loadedMemberships =
-      (membershipData || []) as unknown as Membership[];
-
-    setMemberships(loadedMemberships);
-
-    const viewerMembership = loadedMemberships.find(
-      (membership) =>
-        membership.profile_id === user.id &&
-        membership.membership_status === "active"
-    );
-
-    setViewerRole(
-      loadedTeam.created_by === user.id
-        ? "admin"
-        : viewerMembership?.membership_role || null
-    );
-
-    setLoading(false);
-  }, [setStatusMessage, teamId]);
+  }, [
+    setStatusMessage,
+    teamId,
+  ]);
 
   useEffect(() => {
-    if (!teamId) return;
+    if (!teamId) {
+      return;
+    }
+
     void loadTeam();
   }, [loadTeam, teamId]);
 
-  const handleFormChange = <K extends keyof TeamFormValues>(
+  const handleFormChange = <
+    K extends keyof TeamFormValues,
+  >(
     field: K,
     value: TeamFormValues[K]
   ) => {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
   };
 
   const handleSaveTeam = async () => {
-    if (!team || !viewerId || !canManage) {
+    if (
+      !team ||
+      !actingAthleteId ||
+      !canManage
+    ) {
       setStatusMessage(
         "You do not have permission to edit this team.",
         "error"
       );
+
       return;
     }
 
-    if (!form.sport || !form.clubName || !form.teamName) {
+    if (
+      !form.sport ||
+      !form.clubName ||
+      !form.teamName
+    ) {
       setStatusMessage(
         "Sport, club name and team name are required.",
+        "error"
+      );
+
+      return;
+    }
+
+    if (
+      form.seasonStart &&
+      form.seasonEnd &&
+      form.seasonEnd < form.seasonStart
+    ) {
+      setStatusMessage(
+        "Season end date cannot be before the season start date.",
         "error"
       );
       return;
     }
 
     setSavingTeam(true);
-    setStatusMessage("Saving team details...", "info");
+
+    setStatusMessage(
+      "Saving team details...",
+      "info"
+    );
 
     const displayName = [
       form.clubName,
@@ -233,31 +482,59 @@ export default function ManageTeamPage() {
         .join("-")
     );
 
-    const slug = team.slug || `${slugBase}-${team.id.slice(0, 6)}`;
+    const slug =
+      team.slug ||
+      `${slugBase}-${team.id.slice(
+        0,
+        6
+      )}`;
 
     const { error } = await supabase
       .from("teams")
       .update({
         sport: form.sport,
-        country: form.country || null,
-        state: form.stateRegion || null,
-        association_name: form.associationName || null,
-        competition_name: form.competitionName || null,
-        club_name: form.clubName,
-        team_name: form.teamName,
-        age_group: form.ageGroup || null,
-        gender: form.gender || null,
-        division: form.division || null,
-        season: form.season || null,
-        display_name: displayName,
+        country:
+          form.country || null,
+        state:
+          form.stateRegion || null,
+        association_name:
+          form.associationName ||
+          null,
+        competition_name:
+          form.competitionName ||
+          null,
+        club_name:
+          form.clubName,
+        team_name:
+          form.teamName,
+        age_group:
+          form.ageGroup || null,
+        gender:
+          form.gender || null,
+        division:
+          form.division || null,
+        season:
+          form.season || null,
+        season_start:
+          form.seasonStart || null,
+        season_end:
+          form.seasonEnd || null,
+        display_name:
+          displayName,
         slug,
-        is_public: form.isPublic,
-        updated_at: new Date().toISOString(),
+        is_public:
+          form.isPublic,
+        updated_at:
+          new Date().toISOString(),
       })
       .eq("id", team.id);
 
     if (error) {
-      setStatusMessage(`Unable to update team: ${error.message}`, "error");
+      setStatusMessage(
+        `Unable to update team: ${error.message}`,
+        "error"
+      );
+
       setSavingTeam(false);
       return;
     }
@@ -267,24 +544,49 @@ export default function ManageTeamPage() {
         ? {
             ...current,
             slug,
-            display_name: displayName,
+            display_name:
+              displayName,
             sport: form.sport,
-            country: form.country || null,
-            state: form.stateRegion || null,
-            association_name: form.associationName || null,
-            competition_name: form.competitionName || null,
-            club_name: form.clubName,
-            team_name: form.teamName,
-            age_group: form.ageGroup || null,
-            gender: form.gender || null,
-            division: form.division || null,
-            season: form.season || null,
-            is_public: form.isPublic,
+            country:
+              form.country || null,
+            state:
+              form.stateRegion ||
+              null,
+            association_name:
+              form.associationName ||
+              null,
+            competition_name:
+              form.competitionName ||
+              null,
+            club_name:
+              form.clubName,
+            team_name:
+              form.teamName,
+            age_group:
+              form.ageGroup ||
+              null,
+            gender:
+              form.gender || null,
+            division:
+              form.division ||
+              null,
+            season:
+              form.season || null,
+            season_start:
+              form.seasonStart || null,
+            season_end:
+              form.seasonEnd || null,
+            is_public:
+              form.isPublic,
           }
         : current
     );
 
-    setStatusMessage("Team details updated successfully.", "success");
+    setStatusMessage(
+      "Team details updated successfully.",
+      "success"
+    );
+
     setSavingTeam(false);
   };
 
@@ -298,25 +600,113 @@ export default function ManageTeamPage() {
         "You do not have permission to update member roles.",
         "error"
       );
+
       return;
     }
 
-    if (membershipProfileId === viewerId) {
+    /*
+     * Protect the active athlete whose team authority
+     * is currently being used.
+     */
+    if (
+      membershipProfileId ===
+      actingAthleteId
+    ) {
       setStatusMessage(
-        "You cannot change your own team role from this page.",
+        isGuardianManaged
+          ? `You cannot change ${
+              actingAthleteName ||
+              "this athlete"
+            }'s team role while managing the team on their behalf.`
+          : "You cannot change your own team role from this page.",
         "error"
       );
+
       return;
     }
 
     const { error } = await supabase
-      .from("player_team_memberships")
-      .update({ membership_role: newRole })
+      .from(
+        "player_team_memberships"
+      )
+      .update({
+        membership_role:
+          newRole,
+      })
       .eq("id", membershipId);
 
     if (error) {
       setStatusMessage(
         `Unable to update member role: ${error.message}`,
+        "error"
+      );
+
+      return;
+    }
+
+    setMemberships(
+      (current) =>
+        current.map(
+          (membership) =>
+            membership.id ===
+            membershipId
+              ? {
+                  ...membership,
+                  membership_role:
+                    newRole,
+                }
+              : membership
+        )
+    );
+
+    setStatusMessage(
+      "Member role updated.",
+      "success"
+    );
+  };
+
+  const handleMoveToPrevious = async (
+    membershipId: string,
+    membershipProfileId: string
+  ) => {
+    if (!canManage) {
+      setStatusMessage(
+        "You do not have permission to update team memberships.",
+        "error"
+      );
+      return;
+    }
+
+    if (membershipProfileId === actingAthleteId) {
+      setStatusMessage(
+        isGuardianManaged
+          ? `You cannot move ${
+              actingAthleteName || "this athlete"
+            } to Previous while managing the team on their behalf.`
+          : "You cannot move your own membership to Previous from this page.",
+        "error"
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Move this athlete to Previous? Their team history will be kept, but they will no longer appear as a current member."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from("player_team_memberships")
+      .update({
+        is_current: false,
+      })
+      .eq("id", membershipId);
+
+    if (error) {
+      setStatusMessage(
+        `Unable to move member to Previous: ${error.message}`,
         "error"
       );
       return;
@@ -325,12 +715,18 @@ export default function ManageTeamPage() {
     setMemberships((current) =>
       current.map((membership) =>
         membership.id === membershipId
-          ? { ...membership, membership_role: newRole }
+          ? {
+              ...membership,
+              is_current: false,
+            }
           : membership
       )
     );
 
-    setStatusMessage("Member role updated.", "success");
+    setStatusMessage(
+      "Athlete moved to Previous. Their team history has been preserved.",
+      "success"
+    );
   };
 
   const handleRemoveMember = async (
@@ -342,25 +738,40 @@ export default function ManageTeamPage() {
         "You do not have permission to remove team members.",
         "error"
       );
+
       return;
     }
 
-    if (membershipProfileId === viewerId) {
+    if (
+      membershipProfileId ===
+      actingAthleteId
+    ) {
       setStatusMessage(
-        "You cannot remove your own membership from this page.",
+        isGuardianManaged
+          ? `You cannot remove ${
+              actingAthleteName ||
+              "this athlete"
+            } while managing the team on their behalf.`
+          : "You cannot remove your own membership from this page.",
         "error"
       );
+
       return;
     }
 
-    const confirmed = window.confirm(
-      "Remove this person from the team roster?"
-    );
+    const confirmed =
+      window.confirm(
+        "Remove this person from the team roster?"
+      );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     const { error } = await supabase
-      .from("player_team_memberships")
+      .from(
+        "player_team_memberships"
+      )
       .delete()
       .eq("id", membershipId);
 
@@ -369,14 +780,23 @@ export default function ManageTeamPage() {
         `Unable to remove member: ${error.message}`,
         "error"
       );
+
       return;
     }
 
-    setMemberships((current) =>
-      current.filter((membership) => membership.id !== membershipId)
+    setMemberships(
+      (current) =>
+        current.filter(
+          (membership) =>
+            membership.id !==
+            membershipId
+        )
     );
 
-    setStatusMessage("Team member removed.", "success");
+    setStatusMessage(
+      "Team member removed.",
+      "success"
+    );
   };
 
   if (loading) {
@@ -396,7 +816,8 @@ export default function ManageTeamPage() {
       <AppShell>
         <section className="mx-auto max-w-6xl px-3 py-5 sm:px-4 sm:py-7 md:px-6 md:py-8">
           <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-6 text-red-100">
-            {message || "Team not found."}
+            {message ||
+              "Team not found."}
           </div>
         </section>
       </AppShell>
@@ -406,14 +827,42 @@ export default function ManageTeamPage() {
   return (
     <AppShell>
       <section className="mx-auto max-w-6xl px-3 py-5 sm:px-4 sm:py-7 md:px-6 md:py-8">
-        <TeamManagementHeader team={team} />
+        <TeamManagementHeader
+          team={team}
+        />
 
-        <TeamStatusMessage message={message} type={messageType} />
+        {isGuardianManaged &&
+          actingAthleteName && (
+            <div className="mb-4 rounded-xl border border-[#D8F200]/20 bg-[#D8F200]/10 p-3 sm:mb-6 sm:rounded-2xl sm:p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#D8F200]">
+                Parent / Guardian Access
+              </p>
+
+              <p className="mt-1 text-sm text-white/75">
+                You&apos;re managing
+                this team on behalf of{" "}
+                <span className="font-bold text-white">
+                  {
+                    actingAthleteName
+                  }
+                </span>
+                .
+              </p>
+            </div>
+          )}
+
+        <TeamStatusMessage
+          message={message}
+          type={messageType}
+        />
 
         {!canManage && (
           <div className="mb-4 rounded-xl border border-yellow-300/20 bg-yellow-400/10 p-3 text-xs text-yellow-100 sm:mb-6 sm:rounded-2xl sm:p-4 sm:text-sm">
-            You can view this team, but your current role does not allow team
-            management.
+            You can view this team,
+            but the athlete profile
+            you&apos;re currently
+            managing does not have a
+            team-management role.
           </div>
         )}
 
@@ -423,37 +872,66 @@ export default function ManageTeamPage() {
               values={form}
               canManage={canManage}
               saving={savingTeam}
-              onChange={handleFormChange}
-              onSave={handleSaveTeam}
+              onChange={
+                handleFormChange
+              }
+              onSave={
+                handleSaveTeam
+              }
             />
 
             {canManage && (
               <InviteTeammates
                 teamId={team.id}
-                teamName={team.display_name || team.team_name}
+                teamName={
+                  team.display_name ||
+                  team.team_name
+                }
               />
             )}
 
             <TeamMemberSearch
               teamId={team.id}
-              viewerId={viewerId || ""}
-              canManage={canManage}
-              memberships={memberships}
-              onMemberAdded={loadTeam}
+              viewerId={
+                actingAthleteId ||
+                ""
+              }
+              canManage={
+                canManage
+              }
+              memberships={
+                memberships
+              }
+              onMemberAdded={
+                loadTeam
+              }
             />
           </div>
 
           <div className="order-1 xl:order-2">
             <TeamRosterCard
-              memberships={memberships}
-              viewerId={viewerId}
-              canManage={canManage}
-              onRoleChange={handleRoleChange}
-              onRemoveMember={handleRemoveMember}
+              memberships={
+                memberships
+              }
+              viewerId={
+                actingAthleteId
+              }
+              canManage={
+                canManage
+              }
+              onRoleChange={
+                handleRoleChange
+              }
+              onMoveToPrevious={
+                handleMoveToPrevious
+              }
+              onRemoveMember={
+                handleRemoveMember
+              }
             />
           </div>
         </div>
-</section>
-</AppShell>
-);
+      </section>
+    </AppShell>
+  );
 }

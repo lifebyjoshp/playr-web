@@ -26,8 +26,8 @@ export default function TeamDetailsCard({
       <h2 className="text-2xl font-bold">Team details</h2>
 
       <p className="mt-2 text-sm text-white/65">
-        Maintain the structured identity used across team, club and athlete
-        profiles.
+        Maintain the structured identity and season details used across team,
+        club and athlete profiles.
       </p>
 
       <div className="mt-6 space-y-5">
@@ -148,8 +148,51 @@ export default function TeamDetailsCard({
               value={values.season}
               onChange={(event) => onChange("season", event.target.value)}
               disabled={!canManage}
+              placeholder="e.g. 2026"
               className={inputClassName}
             />
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-[#081642] p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#D8F200]">
+            Season dates
+          </p>
+          <p className="mt-2 text-sm text-white/60">
+            These dates describe the team season. Athlete membership history is
+            managed separately in the roster.
+          </p>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Season Start
+              </label>
+              <input
+                type="date"
+                value={values.seasonStart}
+                onChange={(event) =>
+                  onChange("seasonStart", event.target.value)
+                }
+                disabled={!canManage}
+                className={inputClassName}
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Season End
+              </label>
+              <input
+                type="date"
+                value={values.seasonEnd}
+                onChange={(event) =>
+                  onChange("seasonEnd", event.target.value)
+                }
+                disabled={!canManage}
+                className={inputClassName}
+              />
+            </div>
           </div>
         </div>
 

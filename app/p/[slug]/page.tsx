@@ -6,6 +6,7 @@ import Navbar from "../../../components/Navbar";
 import AthleteShareCard from "../../../components/AthleteShareCard";
 import { BRAND } from "../../../lib/branding";
 import { supabase } from "../../../lib/supabase";
+import { getActiveAthleteContext } from "../../../lib/activeAthlete";
 
 type Profile = {
   id: string;
@@ -26,6 +27,7 @@ type Profile = {
   languages: string[];
   gender: string | null;
   age_group: string | null;
+  date_of_birth: string | null;
   height_cm: number | null;
   weight_kg: number | null;
   dominant_side: string | null;
@@ -146,12 +148,12 @@ export default function PublicProfilePage({
   const [notFound, setNotFound] = useState(false);
 
   const [viewerId, setViewerId] = useState<string | null>(null);
+  const [activeAthleteId, setActiveAthleteId] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [canManageWatchlist, setCanManageWatchlist] = useState(false);
 
-  const [isFollowing, setIsFollowing] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
-  const [followLoading, setFollowLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [isParentManaged, setIsParentManaged] = useState(false);
@@ -164,8 +166,28 @@ export default function PublicProfilePage({
         data: { user },
       } = await supabase.auth.getUser();
 
+      let activeAthleteContext = null;
+
       if (user) {
         setViewerId(user.id);
+
+        try {
+          activeAthleteContext = await getActiveAthleteContext();
+
+          if (activeAthleteContext?.activeAthlete) {
+            setActiveAthleteId(activeAthleteContext.activeAthlete.id);
+
+            const canManage =
+              activeAthleteContext.isSelfManaged ||
+              Boolean(
+                activeAthleteContext.activeGuardianPermissions?.canEditProfile
+              );
+
+            setCanManageWatchlist(canManage);
+          }
+        } catch (error) {
+          console.error("Unable to load active athlete context:", error);
+        }
       }
 
       const { data: profileData, error: profileError } =
@@ -191,6 +213,7 @@ export default function PublicProfilePage({
             languages,
             gender,
             age_group,
+            date_of_birth,
             height_cm,
             weight_kg,
             dominant_side,
@@ -243,29 +266,19 @@ export default function PublicProfilePage({
 
       setIsParentManaged(parentManaged);
 
-      if (user && user.id === loadedProfile.id) {
-        setIsOwner(true);
-      }
+      const activeAthlete = activeAthleteContext?.activeAthlete || null;
+      const ownsLoadedProfile = activeAthlete?.id === loadedProfile.id;
 
-      if (user && user.id !== loadedProfile.id) {
-        const [{ data: followData }, { data: savedData }] =
-          await Promise.all([
-            supabase
-              .from("follows")
-              .select("id")
-              .eq("follower_id", user.id)
-              .eq("following_id", loadedProfile.id)
-              .maybeSingle(),
+      setIsOwner(ownsLoadedProfile);
 
-            supabase
-              .from("saved_players")
-              .select("id")
-              .eq("saver_id", user.id)
-              .eq("saved_profile_id", loadedProfile.id)
-              .maybeSingle(),
-          ]);
+      if (activeAthlete && !ownsLoadedProfile) {
+        const { data: savedData } = await supabase
+          .from("saved_players")
+          .select("id")
+          .eq("saver_id", activeAthlete.id)
+          .eq("saved_profile_id", loadedProfile.id)
+          .maybeSingle();
 
-        setIsFollowing(Boolean(followData));
         setIsSaved(Boolean(savedData));
       }
 
@@ -433,39 +446,16 @@ const freshness =
     );
   }, [latestByType, measurements]);
 
-  const handleToggleFollow = async () => {
-    if (!viewerId || !profile || isOwner) return;
-
-    setFollowLoading(true);
-
-    if (isFollowing) {
-      const { error } = await supabase
-        .from("follows")
-        .delete()
-        .eq("follower_id", viewerId)
-        .eq("following_id", profile.id);
-
-      if (!error) {
-        setIsFollowing(false);
-      }
-    } else {
-      const { error } = await supabase
-        .from("follows")
-        .insert({
-          follower_id: viewerId,
-          following_id: profile.id,
-        });
-
-      if (!error) {
-        setIsFollowing(true);
-      }
-    }
-
-    setFollowLoading(false);
-  };
-
   const handleToggleSave = async () => {
-    if (!viewerId || !profile || isOwner) return;
+    if (
+      !viewerId ||
+      !activeAthleteId ||
+      !profile ||
+      isOwner ||
+      !canManageWatchlist
+    ) {
+      return;
+    }
 
     setSaveLoading(true);
 
@@ -473,7 +463,7 @@ const freshness =
       const { error } = await supabase
         .from("saved_players")
         .delete()
-        .eq("saver_id", viewerId)
+        .eq("saver_id", activeAthleteId)
         .eq("saved_profile_id", profile.id);
 
       if (!error) {
@@ -483,7 +473,7 @@ const freshness =
       const { error } = await supabase
         .from("saved_players")
         .insert({
-          saver_id: viewerId,
+          saver_id: activeAthleteId,
           saved_profile_id: profile.id,
         });
 
@@ -538,6 +528,12 @@ const freshness =
     [profile.state, profile.country]
       .filter(Boolean)
       .join(", ");
+
+  const birthYear =
+    profile.date_of_birth &&
+    /^\d{4}-\d{2}-\d{2}$/.test(profile.date_of_birth)
+      ? profile.date_of_birth.slice(0, 4)
+      : null;
 
   return (
     <main className="min-h-screen bg-[#0B1F5C] pb-20 text-white md:pb-12">
@@ -602,6 +598,10 @@ const freshness =
                       <span>• {profile.position}</span>
                     )}
 
+                    {birthYear && (
+                      <span>• Born {birthYear}</span>
+                    )}
+
                     {currentExperience?.teams
                       ?.display_name && (
                       <span>
@@ -628,46 +628,42 @@ const freshness =
                   >
                     Edit Athlete
                   </Link>
-                ) : viewerId ? (
+                ) : viewerId && activeAthleteId ? (
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3 sm:rounded-2xl sm:p-4">
                     <p className="mb-3 text-sm font-semibold">
                       Interested in this athlete?
                     </p>
 
-                    <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
-                      <button
-                        type="button"
-                        onClick={handleToggleFollow}
-                        disabled={followLoading}
-                        className="rounded-xl bg-[#D8F200] px-5 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
-                      >
-                        {followLoading
-                          ? "Updating..."
-                          : isFollowing
-                            ? BRAND.followingLabel
-                            : BRAND.followLabel}
-                      </button>
+                    <button
+                      type="button"
+                      onClick={handleToggleSave}
+                      disabled={saveLoading || !canManageWatchlist}
+                      className="w-full rounded-xl bg-[#D8F200] px-5 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
+                    >
+                      {saveLoading
+                        ? "Updating..."
+                        : isSaved
+                          ? BRAND.inWatchlistLabel
+                          : BRAND.addToWatchlistLabel}
+                    </button>
 
-                      <button
-                        type="button"
-                        onClick={handleToggleSave}
-                        disabled={saveLoading}
-                        className="rounded-xl border border-white/15 bg-white/10 px-5 py-3 font-semibold disabled:opacity-60"
-                      >
-                        {saveLoading
-                          ? "Updating..."
-                          : isSaved
-                            ? BRAND.inWatchlistLabel
-                            : BRAND.addToWatchlistLabel}
-                      </button>
-                    </div>
+                    {!canManageWatchlist && (
+                      <p className="mt-2 text-xs leading-5 text-white/50">
+                        You can view this athlete, but your guardian permissions
+                        do not allow changes to this athlete&apos;s Watchlist.
+                      </p>
+                    )}
+                  </div>
+                ) : viewerId ? (
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/65 sm:rounded-2xl sm:p-4">
+                    Select an athlete to use Watchlist.
                   </div>
                 ) : (
                   <Link
                     href="/login?message=login-required"
                     className="block rounded-xl bg-[#D8F200] px-5 py-3 text-center font-bold text-[#0B1F5C]"
                   >
-                    Log in to Follow
+                    Log in to Add to Watchlist
                   </Link>
                 )}
 
@@ -1050,6 +1046,7 @@ const freshness =
 
             {(profile.gender ||
               profile.age_group ||
+              birthYear ||
               profile.school_name ||
               profile.languages.length > 0 ||
               profile.dominant_side) && (
@@ -1077,6 +1074,17 @@ const freshness =
                       </p>
                       <p className="mt-1 font-semibold">
                         {profile.age_group}
+                      </p>
+                    </div>
+                  )}
+
+                  {birthYear && (
+                    <div>
+                      <p className="text-xs text-white/45">
+                        Birth Year
+                      </p>
+                      <p className="mt-1 font-semibold">
+                        {birthYear}
                       </p>
                     </div>
                   )}

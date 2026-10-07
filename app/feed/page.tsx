@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import AppShell from "../../components/AppShell";
 import { BRAND } from "../../lib/branding";
 import { supabase } from "../../lib/supabase";
+import { getActiveAthleteContext } from "../../lib/activeAthlete";
 
 type Profile = {
   id: string;
@@ -104,7 +105,6 @@ export default function FeedPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const [followedIds, setFollowedIds] = useState<string[]>([]);
   const [watchlistIds, setWatchlistIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -118,39 +118,44 @@ export default function FeedPage() {
     const loadFeed = async () => {
       setLoading(true);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const context = await getActiveAthleteContext();
 
-      if (user) {
-        const { data: me } = await supabase
-          .from("profiles")
-          .select(
-            "id, full_name, public_slug, headline, primary_sport, position, state, country, profile_photo_url, created_at, feed_sport, feed_location"
-          )
-          .eq("id", user.id)
-          .single();
+        if (context?.activeAthlete) {
+          const athleteId = context.activeAthlete.id;
 
-        if (me) {
-          setViewerProfile(me);
-          setSportFilter(me.feed_sport || "");
-          setLocationFilter(me.feed_location || "");
+          const [{ data: me }, { data: watchlistData }] = await Promise.all([
+            supabase
+              .from("profiles")
+              .select(
+                "id, full_name, public_slug, headline, primary_sport, position, state, country, profile_photo_url, created_at, feed_sport, feed_location"
+              )
+              .eq("id", athleteId)
+              .single(),
+
+            supabase
+              .from("saved_players")
+              .select("saved_profile_id")
+              .eq("saver_id", athleteId),
+          ]);
+
+          if (me) {
+            setViewerProfile(me);
+            setSportFilter(me.feed_sport || "");
+            setLocationFilter(me.feed_location || "");
+          }
+
+          setWatchlistIds(
+            watchlistData?.map((item) => item.saved_profile_id) || []
+          );
+        } else {
+          setViewerProfile(null);
+          setWatchlistIds([]);
         }
-
-        const { data: followsData } = await supabase
-          .from("follows")
-          .select("following_id")
-          .eq("follower_id", user.id);
-
-        const { data: watchlistData } = await supabase
-          .from("saved_players")
-          .select("saved_profile_id")
-          .eq("saver_id", user.id);
-
-        setFollowedIds(followsData?.map((item) => item.following_id) || []);
-        setWatchlistIds(
-          watchlistData?.map((item) => item.saved_profile_id) || []
-        );
+      } catch (error) {
+        console.error("Unable to load active athlete feed context:", error);
+        setViewerProfile(null);
+        setWatchlistIds([]);
       }
 
       const { data: profileData } = await supabase
@@ -206,14 +211,12 @@ export default function FeedPage() {
   ).sort();
 
   const getPriorityScore = (profileId: string) => {
-    if (watchlistIds.includes(profileId)) return 2;
-    if (followedIds.includes(profileId)) return 1;
+    if (watchlistIds.includes(profileId)) return 1;
     return 0;
   };
 
   const getPriorityLabel = (profileId: string) => {
     if (watchlistIds.includes(profileId)) return "Watchlist";
-    if (followedIds.includes(profileId)) return "Following";
     return null;
   };
 
@@ -286,7 +289,7 @@ const feedItems = (() => {
 
   const handleSavePreferences = async () => {
     if (!viewerProfile) {
-      setPreferenceMessage("Log in to save feed preferences.");
+      setPreferenceMessage("Select an athlete to save feed preferences.");
       return;
     }
 
@@ -331,7 +334,7 @@ const feedItems = (() => {
             Your {BRAND.feedLabel}
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-5 text-white/75 sm:text-base md:mt-3">
-            Watchlist and followed Athletes appear first, followed by broader
+            Athletes on your Watchlist appear first, followed by broader
             activity from the {BRAND.networkLabel}.
           </p>
         </div>
@@ -344,8 +347,7 @@ const feedItems = (() => {
                 <div>
                   <h2 className="text-lg font-bold">For You</h2>
                   <p className="mt-1 text-sm text-white/70">
-                    Watchlist first, followed Athletes second, then general
-                    activity.
+                    Watchlist athletes first, then general activity.
                   </p>
                 </div>
 
@@ -638,8 +640,7 @@ const feedItems = (() => {
               <h2 className="mb-4 text-lg font-bold">Feed Priority</h2>
               <div className="space-y-2 text-sm text-white/75">
                 <p>1. On Your RADR</p>
-                <p>2. Followed Athletes</p>
-                <p>3. General activity</p>
+                <p>2. General activity</p>
               </div>
             </div>
 
