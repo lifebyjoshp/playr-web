@@ -9,7 +9,6 @@ import TeamManagementHeader from "../../../../../components/team/TeamManagementH
 import TeamMemberSearch from "../../../../../components/team/TeamMemberSearch";
 import TeamRosterCard from "../../../../../components/team/TeamRosterCard";
 import TeamStatusMessage from "../../../../../components/team/TeamStatusMessage";
-import { TEAM_MANAGER_ROLES } from "../../../../../components/team/teamRoles";
 import type {
   Membership,
   MessageType,
@@ -105,6 +104,9 @@ export default function ManageTeamPage() {
   const [viewerRole, setViewerRole] =
     useState<string | null>(null);
 
+  const [viewerIsTeamAdmin, setViewerIsTeamAdmin] =
+    useState(false);
+
   const [form, setForm] =
     useState<TeamFormValues>(EMPTY_FORM);
 
@@ -120,11 +122,7 @@ export default function ManageTeamPage() {
   const [messageType, setMessageType] =
     useState<MessageType>("info");
 
-  const canManage =
-    TEAM_MANAGER_ROLES.includes(
-      (viewerRole ||
-        "") as (typeof TEAM_MANAGER_ROLES)[number]
-    );
+  const canManage = viewerIsTeamAdmin;
 
   const setStatusMessage = useCallback(
     (
@@ -169,6 +167,7 @@ export default function ManageTeamPage() {
         setActingAthleteId(null);
         setActingAthleteName(null);
         setViewerRole(null);
+        setViewerIsTeamAdmin(false);
 
         setStatusMessage(
           context.requiresAthleteSelection
@@ -205,6 +204,7 @@ export default function ManageTeamPage() {
           ?.canManageTeams !== true
       ) {
         setViewerRole(null);
+        setViewerIsTeamAdmin(false);
       }
 
       /*
@@ -268,6 +268,7 @@ export default function ManageTeamPage() {
           position,
           jersey_number,
           is_current,
+          is_team_admin,
           membership_role,
           membership_status,
           joined_at,
@@ -332,6 +333,7 @@ export default function ManageTeamPage() {
 
       if (!activeMembership) {
         setViewerRole(null);
+        setViewerIsTeamAdmin(false);
 
         setStatusMessage(
           `${activeAthlete.full_name || "The active athlete"} is not an active member of this team.`,
@@ -350,6 +352,7 @@ export default function ManageTeamPage() {
           ?.canManageTeams !== true
       ) {
         setViewerRole(null);
+        setViewerIsTeamAdmin(false);
 
         setStatusMessage(
           `You can view ${activeAthlete.full_name || "this athlete"}'s team, but you do not have permission to manage their teams.`,
@@ -367,6 +370,10 @@ export default function ManageTeamPage() {
         activeMembership.membership_role ||
           null
       );
+
+      setViewerIsTeamAdmin(
+        activeMembership.is_team_admin === true
+      );
     } catch (error) {
       console.error(
         "Unable to load team management:",
@@ -379,6 +386,7 @@ export default function ManageTeamPage() {
       setActingAthleteName(null);
       setIsGuardianManaged(false);
       setViewerRole(null);
+        setViewerIsTeamAdmin(false);
 
       setStatusMessage(
         error instanceof Error
@@ -665,6 +673,68 @@ export default function ManageTeamPage() {
     );
   };
 
+  const handleTeamAdminChange = async (
+    membershipId: string,
+    membershipProfileId: string,
+    isTeamAdmin: boolean
+  ) => {
+    if (!canManage) {
+      setStatusMessage(
+        "You do not have permission to update Team Admin access.",
+        "error"
+      );
+      return;
+    }
+
+    if (!isTeamAdmin) {
+      const currentActiveTeamAdmins = memberships.filter(
+        (membership) =>
+          membership.membership_status === "active" &&
+          membership.is_current &&
+          membership.is_team_admin
+      );
+
+      if (
+        membershipProfileId === actingAthleteId &&
+        currentActiveTeamAdmins.length <= 1
+      ) {
+        setStatusMessage(
+          "You are the last Team Admin. Give Team Admin access to another current team member before removing your own access.",
+          "error"
+        );
+        return;
+      }
+    }
+
+    const { error } = await supabase
+      .from("player_team_memberships")
+      .update({ is_team_admin: isTeamAdmin })
+      .eq("id", membershipId);
+
+    if (error) {
+      setStatusMessage(
+        `Unable to update Team Admin access: ${error.message}`,
+        "error"
+      );
+      return;
+    }
+
+    setMemberships((current) =>
+      current.map((membership) =>
+        membership.id === membershipId
+          ? { ...membership, is_team_admin: isTeamAdmin }
+          : membership
+      )
+    );
+
+    setStatusMessage(
+      isTeamAdmin
+        ? "Team Admin access granted."
+        : "Team Admin access removed.",
+      "success"
+    );
+  };
+
   const handleMoveToPrevious = async (
     membershipId: string,
     membershipProfileId: string
@@ -861,8 +931,8 @@ export default function ManageTeamPage() {
             You can view this team,
             but the athlete profile
             you&apos;re currently
-            managing does not have a
-            team-management role.
+            managing does not have
+            Team Admin access.
           </div>
         )}
 
@@ -921,6 +991,9 @@ export default function ManageTeamPage() {
               }
               onRoleChange={
                 handleRoleChange
+              }
+              onTeamAdminChange={
+                handleTeamAdminChange
               }
               onMoveToPrevious={
                 handleMoveToPrevious

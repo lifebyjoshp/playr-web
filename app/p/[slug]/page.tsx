@@ -61,12 +61,16 @@ type TeamMembership = {
   start_date: string | null;
   end_date: string | null;
   is_current: boolean;
+  membership_status: string;
   teams: {
     display_name: string;
     slug: string | null;
     sport: string;
     association_name: string | null;
     competition_name: string;
+    season: string | null;
+    season_start: string | null;
+    season_end: string | null;
   };
 };
 
@@ -157,6 +161,7 @@ export default function PublicProfilePage({
   const [saveLoading, setSaveLoading] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [isParentManaged, setIsParentManaged] = useState(false);
+  const [teamHistoryFilter, setTeamHistoryFilter] = useState("all");
 
   useEffect(() => {
     const loadPublicProfile = async () => {
@@ -309,12 +314,16 @@ export default function PublicProfilePage({
             start_date,
             end_date,
             is_current,
+            membership_status,
             teams (
               display_name,
               slug,
               sport,
               association_name,
-              competition_name
+              competition_name,
+              season,
+              season_start,
+              season_end
             )
           `
           )
@@ -362,15 +371,82 @@ export default function PublicProfilePage({
     void loadPublicProfile();
   }, [params]);
 
+  const today = new Date().toISOString().slice(0, 10);
+
   const currentExperience = useMemo(
-    () => experience.find((item) => item.is_current) || null,
-    [experience]
+    () =>
+      experience.filter(
+        (item) =>
+          item.membership_status === "active" &&
+          item.is_current &&
+          (!item.teams.season_end || item.teams.season_end >= today)
+      ),
+    [experience, today]
   );
 
   const previousExperience = useMemo(
-    () => experience.filter((item) => !item.is_current),
-    [experience]
+    () =>
+      experience.filter(
+        (item) =>
+          !item.is_current ||
+          Boolean(item.teams.season_end && item.teams.season_end < today)
+      ),
+    [experience, today]
   );
+
+  const getMembershipYear = (item: TeamMembership) => {
+    if (item.teams.season) {
+      const match = item.teams.season.match(/\b(19|20)\d{2}\b/);
+      if (match) return match[0];
+    }
+    const date =
+      item.teams.season_start ||
+      item.start_date ||
+      item.teams.season_end ||
+      item.end_date;
+    return date?.slice(0, 4) || null;
+  };
+
+  const historyYears = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          previousExperience
+            .map((item) => getMembershipYear(item))
+            .filter((year): year is string => Boolean(year))
+        )
+      ).sort((a, b) => Number(b) - Number(a)),
+    [previousExperience]
+  );
+
+  const filteredPreviousExperience = useMemo(
+    () =>
+      teamHistoryFilter === "all"
+        ? previousExperience
+        : previousExperience.filter(
+            (item) => getMembershipYear(item) === teamHistoryFilter
+          ),
+    [previousExperience, teamHistoryFilter]
+  );
+
+  const formatTeamDate = (value: string | null) => {
+    if (!value) return null;
+    const [year, month, day] = value.split("-").map(Number);
+    if (!year || !month || !day) return value;
+    return new Intl.DateTimeFormat("en-AU", {
+      month: "short",
+      year: "numeric",
+    }).format(new Date(year, month - 1, day));
+  };
+
+  const getTeamPeriod = (item: TeamMembership) => {
+    const start = formatTeamDate(item.teams.season_start || item.start_date);
+    const end = formatTeamDate(item.teams.season_end || item.end_date);
+    if (start && end) return `${start} – ${end}`;
+    if (start) return `${start} – Current`;
+    if (end) return `Until ${end}`;
+    return item.teams.season || null;
+  };
 
   const latestByType = useMemo(() => {
     const map = new Map<string, Measurement>();
@@ -602,14 +678,10 @@ const freshness =
                       <span>• Born {birthYear}</span>
                     )}
 
-                    {currentExperience?.teams
-                      ?.display_name && (
+                    {currentExperience.length > 0 && (
                       <span>
-                        •{" "}
-                        {
-                          currentExperience.teams
-                            .display_name
-                        }
+                        • {currentExperience.length} Current{" "}
+                        {currentExperience.length === 1 ? "Team" : "Teams"}
                       </span>
                     )}
 
@@ -690,27 +762,12 @@ const freshness =
                 </span>
               )}
 
-              {currentExperience?.teams
-                ?.display_name &&
-                (currentExperience.teams.slug ? (
-                  <Link
-                    href={`/teams/${currentExperience.teams.slug}`}
-                    title={`View ${currentExperience.teams.display_name} team`}
-                    className="rounded-full border border-[#D8F200]/20 bg-white/10 px-2.5 py-1.5 text-xs font-semibold transition hover:border-[#D8F200]/50 hover:bg-white/15 hover:text-[#D8F200] focus:outline-none focus:ring-2 focus:ring-[#D8F200]/50 sm:px-3 sm:py-2 sm:text-sm"
-                  >
-                    {[
-                      profile.age_group,
-                      currentExperience.teams.competition_name,
-                      currentExperience.teams.display_name,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </Link>
-                ) : (
-                  <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm">
-                    {currentExperience.teams.display_name}
-                  </span>
-                ))}
+              {currentExperience.length > 0 && (
+                <span className="rounded-full border border-[#D8F200]/20 bg-[#D8F200]/10 px-2.5 py-1.5 text-xs font-semibold text-[#D8F200] sm:px-3 sm:py-2 sm:text-sm">
+                  {currentExperience.length} Current{" "}
+                  {currentExperience.length === 1 ? "Team" : "Teams"}
+                </span>
+              )}
 
               {location && (
                 <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm">
@@ -897,87 +954,129 @@ const freshness =
               )}
             </section>
 
-            {previousExperience.length > 0 && (
+            {experience.length > 0 && (
               <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 md:p-8">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
-                  Experience
-                </p>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">Teams</p>
+                    <h2 className="mt-1 text-xl font-bold sm:mt-2 sm:text-2xl">Teams &amp; History</h2>
+                  </div>
+                  {currentExperience.length > 0 && (
+                    <span className="w-fit rounded-full bg-[#D8F200]/10 px-3 py-1.5 text-xs font-bold text-[#D8F200]">
+                      {currentExperience.length} current
+                    </span>
+                  )}
+                </div>
 
-                <h2 className="mt-1 text-xl font-bold sm:mt-2 sm:text-2xl">
-                  Previous Teams
-                </h2>
+                {currentExperience.length > 0 && (
+                  <div className="mt-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">Current Teams</p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {currentExperience.map((item) => (
+                        <div key={item.id} className="rounded-xl border border-[#D8F200]/15 bg-[#081642] p-4 sm:rounded-2xl sm:p-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              {item.teams.slug ? (
+                                <Link href={`/teams/${item.teams.slug}`} className="text-base font-bold transition hover:text-[#D8F200] sm:text-lg">
+                                  {item.teams.display_name}
+                                </Link>
+                              ) : (
+                                <h3 className="text-base font-bold sm:text-lg">{item.teams.display_name}</h3>
+                              )}
+                              <p className="mt-1 text-sm text-white/65">
+                                {[item.teams.sport, item.position, item.teams.competition_name].filter(Boolean).join(" • ")}
+                              </p>
+                              {item.teams.association_name && (
+                                <p className="mt-1 text-xs text-white/45">{item.teams.association_name}</p>
+                              )}
+                            </div>
+                            <span className="shrink-0 rounded-full bg-[#D8F200]/10 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#D8F200]">Current</span>
+                          </div>
+                          {getTeamPeriod(item) && (
+                            <p className="mt-3 text-xs font-semibold text-white/50">{getTeamPeriod(item)}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                <div className="mt-4 space-y-3 sm:mt-6 sm:space-y-4">
-                  {previousExperience.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-xl bg-[#081642] p-4 sm:rounded-2xl sm:p-5"
-                    >
-                      <h3 className="text-base font-bold sm:text-lg">
-                        {item.teams.display_name}
-                      </h3>
-
-                      <p className="mt-1 text-sm text-white/65">
-                        {[
-                          item.teams.sport,
-                          item.position,
-                          item.teams.association_name,
-                          item.teams.competition_name,
-                        ]
-                          .filter(Boolean)
-                          .join(" • ")}
-                      </p>
-
-                      {(item.start_date ||
-                        item.end_date) && (
-                        <p className="mt-2 text-sm text-white/45">
-                          {item.start_date ||
-                            "Start date not set"}{" "}
-                          –{" "}
-                          {item.end_date ||
-                            "Current"}
-                        </p>
+                {previousExperience.length > 0 && (
+                  <div className={currentExperience.length > 0 ? "mt-7 border-t border-white/10 pt-6" : "mt-5"}>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">Team History</p>
+                        <p className="mt-1 text-sm text-white/55">Previous teams and seasons.</p>
+                      </div>
+                      {historyYears.length > 0 && (
+                        <select
+                          value={teamHistoryFilter}
+                          onChange={(event) => setTeamHistoryFilter(event.target.value)}
+                          className="w-full rounded-xl border border-white/10 bg-[#081642] px-3 py-2 text-sm font-semibold text-white sm:w-auto"
+                        >
+                          <option value="all">All history</option>
+                          {historyYears.map((year) => (
+                            <option key={year} value={year}>{year}</option>
+                          ))}
+                        </select>
                       )}
                     </div>
-                  ))}
-                </div>
+
+                    <div className="mt-4 space-y-3">
+                      {filteredPreviousExperience.map((item) => (
+                        <div key={item.id} className="rounded-xl bg-[#081642] p-4 sm:rounded-2xl sm:p-5">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              {item.teams.slug ? (
+                                <Link href={`/teams/${item.teams.slug}`} className="text-base font-bold transition hover:text-[#D8F200] sm:text-lg">
+                                  {item.teams.display_name}
+                                </Link>
+                              ) : (
+                                <h3 className="text-base font-bold sm:text-lg">{item.teams.display_name}</h3>
+                              )}
+                              <p className="mt-1 text-sm text-white/65">
+                                {[item.teams.sport, item.position, item.teams.association_name, item.teams.competition_name].filter(Boolean).join(" • ")}
+                              </p>
+                            </div>
+                            {(getMembershipYear(item) || item.teams.season) && (
+                              <span className="w-fit shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-white/60">
+                                {getMembershipYear(item) || item.teams.season}
+                              </span>
+                            )}
+                          </div>
+                          {getTeamPeriod(item) && (
+                            <p className="mt-2 text-sm text-white/45">{getTeamPeriod(item)}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </section>
             )}
+
           </div>
 
           <aside className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:block lg:space-y-6">
-            {currentExperience && (
+            {currentExperience.length > 0 && (
               <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 lg:p-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
-                  Current Team
-                </p>
-
-                <h2 className="mt-3 text-xl font-bold">
-                  {
-                    currentExperience.teams
-                      .display_name
-                  }
-                </h2>
-
-                <p className="mt-2 text-sm text-white/65">
-                  {[
-                    currentExperience.teams.sport,
-                    currentExperience.position,
-                  ]
-                    .filter(Boolean)
-                    .join(" • ")}
-                </p>
-
-                <p className="mt-2 text-sm text-white/50">
-                  {[
-                    currentExperience.teams
-                      .association_name,
-                    currentExperience.teams
-                      .competition_name,
-                  ]
-                    .filter(Boolean)
-                    .join(" • ")}
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">Current Teams</p>
+                <div className="mt-4 space-y-3">
+                  {currentExperience.map((item) => (
+                    <div key={item.id} className="rounded-xl bg-[#081642] p-4">
+                      {item.teams.slug ? (
+                        <Link href={`/teams/${item.teams.slug}`} className="font-bold transition hover:text-[#D8F200]">
+                          {item.teams.display_name}
+                        </Link>
+                      ) : (
+                        <p className="font-bold">{item.teams.display_name}</p>
+                      )}
+                      <p className="mt-1 text-sm text-white/60">
+                        {[item.teams.sport, item.position].filter(Boolean).join(" • ")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </section>
             )}
 
@@ -1138,7 +1237,7 @@ const freshness =
           athleteName={displayName}
           profilePhotoUrl={profile.profile_photo_url}
           sport={profile.primary_sport}
-          teamName={currentExperience?.teams?.display_name || null}
+          teamName={currentExperience[0]?.teams?.display_name || null}
           isFoundingAthlete={Boolean(profile.is_founding_athlete)}
           foundingAthleteNumber={profile.founding_athlete_number}
           profileUrl={

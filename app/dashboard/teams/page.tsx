@@ -23,12 +23,14 @@ type TeamSummary = {
   season_start: string | null;
   season_end: string | null;
   is_current: boolean;
+  is_team_admin: boolean;
   membership_role: string;
   membership_status: string;
 };
 
 type MembershipRow = {
   is_current: boolean;
+  is_team_admin: boolean;
   membership_role: string;
   membership_status: string;
 
@@ -121,6 +123,7 @@ export default function TeamsDashboardPage() {
         .select(
           `
           is_current,
+          is_team_admin,
           membership_role,
           membership_status,
           teams (
@@ -178,6 +181,7 @@ export default function TeamsDashboardPage() {
             season_start: team.season_start,
             season_end: team.season_end,
             is_current: membership.is_current,
+            is_team_admin: membership.is_team_admin,
             membership_role:
               membership.membership_role,
             membership_status:
@@ -610,6 +614,12 @@ export default function TeamsDashboardPage() {
                               {getRoleLabel(team.membership_role)}
                             </p>
 
+                            {team.is_team_admin && (
+                              <span className="rounded-full border border-[#D8F200]/25 bg-[#D8F200]/10 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#D8F200]">
+                                Team Admin
+                              </span>
+                            )}
+
                             <span className="rounded-full bg-[#D8F200]/15 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#D8F200]">
                               Current
                             </span>
@@ -658,9 +668,7 @@ export default function TeamsDashboardPage() {
                           </Link>
                         )}
 
-                        {["admin", "manager", "head_coach", "assistant_coach"].includes(
-                          team.membership_role
-                        ) && (
+                        {team.is_team_admin && (
                           <Link
                             href={`/dashboard/teams/${team.id}/manage`}
                             className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold"

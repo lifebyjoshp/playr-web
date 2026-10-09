@@ -394,7 +394,8 @@ export default function CreateTeamPage() {
      *
      * CRITICAL:
      *
-     * The ACTIVE ATHLETE becomes the team administrator.
+     * The ACTIVE ATHLETE joins in their sporting role
+     * as an Athlete and receives separate Team Admin authority.
      *
      * A parent managing an athlete does NOT become a
      * roster member.
@@ -408,7 +409,8 @@ export default function CreateTeamPage() {
           team_id: team.id,
           position: position.trim() || null,
           is_current: true,
-          membership_role: "admin",
+          membership_role: "athlete",
+          is_team_admin: true,
           membership_status: "active",
           joined_at: new Date().toISOString(),
         });

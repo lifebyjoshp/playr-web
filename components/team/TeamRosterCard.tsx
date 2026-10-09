@@ -11,6 +11,11 @@ type TeamRosterCardProps = {
     membershipProfileId: string,
     newRole: string
   ) => Promise<void>;
+  onTeamAdminChange: (
+    membershipId: string,
+    membershipProfileId: string,
+    isTeamAdmin: boolean
+  ) => Promise<void>;
   onMoveToPrevious: (
     membershipId: string,
     membershipProfileId: string
@@ -26,6 +31,7 @@ export default function TeamRosterCard({
   viewerId,
   canManage,
   onRoleChange,
+  onTeamAdminChange,
   onMoveToPrevious,
   onRemoveMember,
 }: TeamRosterCardProps) {
@@ -40,11 +46,8 @@ export default function TeamRosterCard({
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#D8F200] sm:text-xs sm:tracking-[0.2em]">
             Roster
           </p>
-          <h2 className="mt-1 text-xl font-bold sm:mt-2 sm:text-2xl">
-            Team members
-          </h2>
+          <h2 className="mt-1 text-xl font-bold sm:mt-2 sm:text-2xl">Team members</h2>
         </div>
-
         <div className="shrink-0 rounded-full border border-white/10 bg-[#081642] px-3 py-1.5 text-xs font-bold text-white/75">
           {currentCount} current
         </div>
@@ -62,7 +65,6 @@ export default function TeamRosterCard({
           const memberProfile = Array.isArray(profileValue)
             ? profileValue[0]
             : profileValue;
-
           const isViewer = membership.profile_id === viewerId;
 
           return (
@@ -107,14 +109,18 @@ export default function TeamRosterCard({
                         <span className="font-semibold text-white/75">
                           {getTeamRoleLabel(membership.membership_role)}
                         </span>
-
+                        {membership.is_team_admin && (
+                          <>
+                            <span className="text-white/25">•</span>
+                            <span className="font-bold text-[#D8F200]">Team Admin</span>
+                          </>
+                        )}
                         {membership.position && (
                           <>
                             <span className="text-white/25">•</span>
                             <span>{membership.position}</span>
                           </>
                         )}
-
                         {membership.jersey_number && (
                           <>
                             <span className="text-white/25">•</span>
@@ -134,23 +140,19 @@ export default function TeamRosterCard({
                       >
                         {membership.is_current ? "Current" : "Previous"}
                       </span>
-
                       {isViewer && (
-                        <p className="mt-1 text-[10px] font-bold text-[#D8F200]">
-                          You
-                        </p>
+                        <p className="mt-1 text-[10px] font-bold text-[#D8F200]">You</p>
                       )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-3 grid gap-2">
+              <div className="mt-3 grid gap-3">
                 <div>
                   <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45 sm:text-xs sm:tracking-[0.15em]">
                     Team role
                   </label>
-
                   <select
                     value={membership.membership_role}
                     onChange={(event) =>
@@ -171,6 +173,45 @@ export default function TeamRosterCard({
                   </select>
                 </div>
 
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold text-white">Team Admin</p>
+                      <p className="mt-1 text-[11px] leading-4 text-white/50">
+                        Can edit team details, manage the roster and invite members.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={membership.is_team_admin}
+                      disabled={
+                        !canManage ||
+                        !membership.is_current ||
+                        (isViewer && membership.is_team_admin)
+                      }
+                      onClick={() =>
+                        void onTeamAdminChange(
+                          membership.id,
+                          membership.profile_id,
+                          !membership.is_team_admin
+                        )
+                      }
+                      className={`relative h-7 w-12 shrink-0 rounded-full transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        membership.is_team_admin
+                          ? "bg-[#D8F200]"
+                          : "bg-white/15"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${
+                          membership.is_team_admin ? "left-6" : "left-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
                 {canManage && !isViewer && (
                   <div className="grid gap-2 sm:grid-cols-2">
                     {membership.is_current && (
@@ -187,7 +228,6 @@ export default function TeamRosterCard({
                         Move to Previous
                       </button>
                     )}
-
                     <button
                       type="button"
                       onClick={() =>

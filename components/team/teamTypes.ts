@@ -55,6 +55,7 @@ export type Membership = {
   position: string | null;
   jersey_number: string | null;
   is_current: boolean;
+  is_team_admin: boolean;
   membership_role: string;
   membership_status: string;
   joined_at: string | null;
