@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { BRAND } from "../../lib/branding";
 import { supabase } from "../../lib/supabase";
 import { TEAM_ROLES } from "./teamRoles";
-import type { AthleteSearchResult, Membership } from "./teamTypes";
+import type { AthleteSearchResult } from "./teamTypes";
 
 type TeamMemberSearchProps = {
   teamId: string;
   viewerId: string;
   canManage: boolean;
-  memberships: Membership[];
+  memberships: Array<{ profile_id: string }>;
   onMemberAdded: () => Promise<void>;
+  compact?: boolean;
 };
 
 export default function TeamMemberSearch({
@@ -20,6 +21,7 @@ export default function TeamMemberSearch({
   canManage,
   memberships,
   onMemberAdded,
+  compact = false,
 }: TeamMemberSearchProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [results, setResults] = useState<AthleteSearchResult[]>([]);
@@ -138,12 +140,22 @@ export default function TeamMemberSearch({
   };
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur md:p-8">
+    <div
+      className={
+        compact
+          ? "rounded-2xl border border-[#D8F200]/20 bg-[#081642] p-5"
+          : "rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur md:p-8"
+      }
+    >
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
-        Build Your Team
+        {compact ? "Add Existing Member" : "Build Your Team"}
       </p>
 
-      <h2 className="mt-3 text-2xl font-bold">Search {BRAND.name} members</h2>
+      <h2
+        className={`${compact ? "mt-2 text-xl" : "mt-3 text-2xl"} font-bold`}
+      >
+        Search {BRAND.name}
+      </h2>
 
       <p className="mt-2 text-sm text-white/65">
         Search by name for an athlete, coach, manager, parent or another team
@@ -151,7 +163,10 @@ export default function TeamMemberSearch({
       </p>
 
       <div className="mt-6">
-        <label className="mb-2 block text-sm font-medium">Search by name</label>
+        <label className="mb-2 block text-sm font-medium">
+          Search by name
+        </label>
+
         <input
           type="search"
           value={searchTerm}
@@ -164,6 +179,7 @@ export default function TeamMemberSearch({
           disabled={!canManage}
           className="w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 text-white placeholder:text-white/40 outline-none disabled:opacity-60"
         />
+
         <p className="mt-2 text-xs text-white/50">
           Enter at least two characters.
         </p>
@@ -182,9 +198,10 @@ export default function TeamMemberSearch({
         !message && (
           <div className="mt-4 rounded-xl bg-[#081642] p-4">
             <p className="font-semibold">No available members found</p>
+
             <p className="mt-2 text-sm text-white/60">
-              Check the spelling or try the person&apos;s full name. Email and
-              mobile invitations will be added in the next sprint.
+              Check the spelling or try the person&apos;s full name. If they are
+              not on RADR yet, use the team invite link.
             </p>
           </div>
         )}
@@ -222,12 +239,17 @@ export default function TeamMemberSearch({
                 <p className="truncate text-lg font-bold">
                   {member.full_name || "Unnamed RADR member"}
                 </p>
+
                 <p className="mt-1 truncate text-sm text-white/65">
-                  {member.headline || member.primary_sport || "RADR member"}
+                  {member.headline ||
+                    member.primary_sport ||
+                    "RADR member"}
                 </p>
+
                 <p className="mt-1 text-xs text-white/45">
-                  {[member.state, member.country].filter(Boolean).join(", ") ||
-                    "Location not listed"}
+                  {[member.state, member.country]
+                    .filter(Boolean)
+                    .join(", ") || "Location not listed"}
                 </p>
               </div>
 
@@ -258,9 +280,11 @@ export default function TeamMemberSearch({
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#D8F200]">
                 Selected member
               </p>
+
               <h3 className="mt-2 text-xl font-bold">
                 {selectedMember.full_name || "Unnamed RADR member"}
               </h3>
+
               <p className="mt-1 text-sm text-white/65">
                 {selectedMember.headline ||
                   selectedMember.primary_sport ||
@@ -281,7 +305,10 @@ export default function TeamMemberSearch({
           </div>
 
           <div className="mt-5">
-            <label className="mb-2 block text-sm font-medium">Team role</label>
+            <label className="mb-2 block text-sm font-medium">
+              Team role
+            </label>
+
             <select
               value={selectedRole}
               onChange={(event) => setSelectedRole(event.target.value)}
