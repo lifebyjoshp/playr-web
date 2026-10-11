@@ -502,29 +502,34 @@ export default function CreateTeamPage() {
           ) : (
             <>
               <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Sport *
-                </label>
+  <label className="mb-2 block text-sm font-medium">
+    Sport *
+  </label>
 
-                <select
-                  value={sport}
-                  onChange={(event) =>
-                    setSport(event.target.value)
-                  }
-                  className="w-full rounded-xl bg-[#081642] px-4 py-3"
-                >
-                  <option value="">Select sport</option>
-                  <option>Basketball</option>
-                  <option>Football</option>
-                  <option>Soccer</option>
-                  <option>Rugby League</option>
-                  <option>Rugby Union</option>
-                  <option>Netball</option>
-                  <option>Cricket</option>
-                  <option>Hockey</option>
-                  <option>Volleyball</option>
-                </select>
-              </div>
+  <select
+    value={sport}
+    onChange={(event) =>
+      setSport(event.target.value)
+    }
+    className="w-full rounded-xl bg-[#081642] px-4 py-3"
+  >
+    <option value="">Select sport</option>
+<option>Basketball</option>
+<option>Football/Soccer</option>
+<option>Netball</option>
+<option>Rugby League</option>
+<option>Rugby Union</option>
+<option>AFL</option>
+<option>Athletics</option>
+<option>Cricket</option>
+<option>Hockey</option>
+<option>Volleyball</option>
+<option>Nippers / Surf Life Saving</option>
+<option>Swimming</option>
+<option>Touch Football</option>
+<option>Oztag</option>
+  </select>
+</div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
@@ -551,7 +556,7 @@ export default function CreateTeamPage() {
                     onChange={(event) =>
                       setStateRegion(event.target.value)
                     }
-                    placeholder="e.g. NSW"
+                    placeholder="e.g. QLD"
                     className="w-full rounded-xl bg-[#081642] px-4 py-3"
                   />
                 </div>
@@ -567,7 +572,7 @@ export default function CreateTeamPage() {
                   onChange={(event) =>
                     setAssociationName(event.target.value)
                   }
-                  placeholder="e.g. Basketball NSW"
+                  placeholder="e.g. QLD Basketball"
                   className="w-full rounded-xl bg-[#081642] px-4 py-3"
                 />
               </div>
@@ -598,7 +603,7 @@ export default function CreateTeamPage() {
                     onChange={(event) =>
                       setClubName(event.target.value)
                     }
-                    placeholder="e.g. Newcastle Basketball Association"
+                    placeholder="e.g. Gold Coast Basketball Association"
                     className="w-full rounded-xl bg-[#081642] px-4 py-3"
                   />
                 </div>
@@ -613,7 +618,7 @@ export default function CreateTeamPage() {
                     onChange={(event) =>
                       setTeamName(event.target.value)
                     }
-                    placeholder="e.g. Newcastle Falcons"
+                    placeholder="e.g. Gold Coast Lightning"
                     className="w-full rounded-xl bg-[#081642] px-4 py-3"
                   />
                 </div>

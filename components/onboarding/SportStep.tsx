@@ -8,6 +8,10 @@ const SPORTS = [
   "Rugby Union",
   "AFL",
   "Athletics",
+  "Nippers / Surf Life Saving",
+  "Swimming",
+  "Touch Football",
+  "Oztag",
 ];
 
 const BASKETBALL_POSITIONS = [
