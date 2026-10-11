@@ -300,7 +300,7 @@ export default function ExplorePage() {
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. NSW or Australia"
+                placeholder="e.g. VIC or Australia"
                 className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
               />
             </div>
@@ -311,7 +311,7 @@ export default function ExplorePage() {
                 type="text"
                 value={association}
                 onChange={(e) => setAssociation(e.target.value)}
-                placeholder="e.g. Basketball NSW"
+                placeholder="e.g. Basketball VIC"
                 className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
               />
             </div>
@@ -333,7 +333,7 @@ export default function ExplorePage() {
                 type="text"
                 value={club}
                 onChange={(e) => setClub(e.target.value)}
-                placeholder="e.g. Newcastle Falcons"
+                placeholder="e.g. Melbourne Tigers"
                 className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
               />
             </div>
