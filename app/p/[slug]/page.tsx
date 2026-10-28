@@ -7,6 +7,7 @@ import AthleteShareCard from "../../../components/AthleteShareCard";
 import { BRAND } from "../../../lib/branding";
 import { supabase } from "../../../lib/supabase";
 import { getActiveAthleteContext } from "../../../lib/activeAthlete";
+import { getAthleteSports } from "../../../lib/sports";
 
 type Profile = {
   id: string;
@@ -19,6 +20,7 @@ type Profile = {
   bio: string | null;
   is_public: boolean | null;
   primary_sport: string | null;
+  other_sports: string[];
   position: string | null;
   state: string | null;
   country: string | null;
@@ -210,6 +212,7 @@ export default function PublicProfilePage({
             bio,
             is_public,
             primary_sport,
+            other_sports,
             position,
             state,
             country,
@@ -248,6 +251,9 @@ export default function PublicProfilePage({
           : [],
         languages: Array.isArray(profileData.languages)
           ? profileData.languages
+          : [],
+        other_sports: Array.isArray(profileData.other_sports)
+          ? profileData.other_sports
           : [],
       };
 
@@ -611,6 +617,15 @@ const freshness =
       ? profile.date_of_birth.slice(0, 4)
       : null;
 
+  const athleteSports = getAthleteSports(
+    profile.primary_sport,
+    profile.other_sports
+  );
+
+  const otherSports = athleteSports.filter(
+    (sport) => sport !== profile.primary_sport
+  );
+
   return (
     <main className="min-h-screen bg-[#0B1F5C] pb-20 text-white md:pb-12">
       <Navbar />
@@ -751,8 +766,8 @@ const freshness =
 
             <div className="mt-4 flex flex-wrap gap-1.5 sm:mt-5 sm:gap-2 md:mt-7">
               {profile.primary_sport && (
-                <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:py-2 sm:text-sm">
-                  {profile.primary_sport}
+                <span className="rounded-full border border-[#D8F200]/25 bg-[#D8F200]/10 px-2.5 py-1.5 text-xs font-bold text-[#D8F200] sm:px-3 sm:py-2 sm:text-sm">
+                  Primary Sport: {profile.primary_sport}
                 </span>
               )}
 
@@ -813,6 +828,51 @@ const freshness =
                   "This athlete has not added a bio yet."}
               </p>
             </section>
+
+            {athleteSports.length > 0 && (
+              <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 md:p-8">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
+                  Sports
+                </p>
+
+                <h2 className="mt-1 text-xl font-bold sm:mt-2 sm:text-2xl">
+                  Athlete Sports
+                </h2>
+
+                <div className="mt-4 sm:mt-5">
+                  {profile.primary_sport && (
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
+                        Primary Sport
+                      </p>
+                      <div className="mt-2">
+                        <span className="inline-flex rounded-full border border-[#D8F200]/25 bg-[#D8F200]/10 px-3 py-2 text-sm font-bold text-[#D8F200]">
+                          {profile.primary_sport}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {otherSports.length > 0 && (
+                    <div className={profile.primary_sport ? "mt-5" : ""}>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
+                        Also Competes In
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {otherSports.map((sport) => (
+                          <span
+                            key={sport}
+                            className="rounded-full bg-[#081642] px-3 py-2 text-sm font-semibold text-white/80"
+                          >
+                            {sport}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
 
             <section className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:rounded-3xl sm:p-5 md:p-8">
               <div className="flex items-end justify-between gap-4">

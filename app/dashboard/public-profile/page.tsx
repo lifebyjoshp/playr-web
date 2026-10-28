@@ -5,6 +5,11 @@ import AppShell from "../../../components/AppShell";
 import { BRAND } from "../../../lib/branding";
 import { supabase } from "../../../lib/supabase";
 import { getActiveAthleteContext } from "../../../lib/activeAthlete";
+import {
+  OTHER_SPORT_VALUE,
+  RADR_SPORTS,
+  isCanonicalSport,
+} from "../../../lib/sports";
 
 function cleanList(values: string[]) {
   return Array.from(
@@ -21,6 +26,14 @@ export default function PublicProfilePage() {
   const [isPublic, setIsPublic] = useState(true);
 
   const [primarySport, setPrimarySport] = useState("");
+  const [otherSports, setOtherSports] = useState<string[]>([]);
+  const [newOtherSport, setNewOtherSport] = useState("");
+  const [addingCustomOtherSport, setAddingCustomOtherSport] =
+    useState(false);
+  const [customPrimarySport, setCustomPrimarySport] = useState("");
+  const [addingCustomPrimarySport, setAddingCustomPrimarySport] =
+    useState(false);
+  const [gender, setGender] = useState("");
   const [position, setPosition] = useState("");
   const [stateRegion, setStateRegion] = useState("");
   const [country, setCountry] = useState("");
@@ -34,7 +47,9 @@ export default function PublicProfilePage() {
   const [newLanguage, setNewLanguage] = useState("");
 
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
-  const [athleteProfileId, setAthleteProfileId] = useState<string | null>(null);
+  const [athleteProfileId, setAthleteProfileId] = useState<string | null>(
+    null
+  );
 
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -48,7 +63,11 @@ export default function PublicProfilePage() {
     const loadProfile = async () => {
       const context = await getActiveAthleteContext();
 
-      if (!context || context.requiresAthleteSelection || !context.activeAthlete) {
+      if (
+        !context ||
+        context.requiresAthleteSelection ||
+        !context.activeAthlete
+      ) {
         setMessageType("error");
         setMessage(
           context?.requiresAthleteSelection
@@ -76,7 +95,29 @@ export default function PublicProfilePage() {
       setPublicSlug(data.public_slug || "");
       setIsPublic(data.is_public ?? true);
 
-      setPrimarySport(data.primary_sport || "");
+      const loadedPrimarySport = data.primary_sport || "";
+
+      setPrimarySport(loadedPrimarySport);
+
+      const loadedCustomPrimary =
+        loadedPrimarySport && !isCanonicalSport(loadedPrimarySport);
+
+      setCustomPrimarySport(
+        loadedCustomPrimary ? loadedPrimarySport : ""
+      );
+
+      setAddingCustomPrimarySport(Boolean(loadedCustomPrimary));
+
+      setOtherSports(
+        Array.isArray(data.other_sports)
+          ? cleanList(data.other_sports).filter(
+              (sport) =>
+                sport.toLowerCase() !== loadedPrimarySport.toLowerCase()
+            )
+          : []
+      );
+
+      setGender(data.gender || "");
       setPosition(data.position || "");
       setStateRegion(data.state || "");
       setCountry(data.country || "");
@@ -90,9 +131,7 @@ export default function PublicProfilePage() {
       );
 
       setLanguages(
-        Array.isArray(data.languages)
-          ? cleanList(data.languages)
-          : []
+        Array.isArray(data.languages) ? cleanList(data.languages) : []
       );
 
       setProfilePhotoUrl(data.profile_photo_url || "");
@@ -198,6 +237,46 @@ export default function PublicProfilePage() {
     );
   };
 
+  const addOtherSport = () => {
+    const value = newOtherSport.trim();
+
+    if (!value) return;
+
+    if (value.toLowerCase() === primarySport.trim().toLowerCase()) {
+      setMessageType("error");
+      setMessage("That sport is already your Primary Sport.");
+      return;
+    }
+
+    setOtherSports((current) => cleanList([...current, value]));
+    setNewOtherSport("");
+    setMessage("");
+  };
+
+  const removeOtherSport = (sportToRemove: string) => {
+    setOtherSports((current) =>
+      current.filter((item) => item !== sportToRemove)
+    );
+  };
+
+  const handlePrimarySportSelection = (value: string) => {
+    if (value === OTHER_SPORT_VALUE) {
+      setPrimarySport(customPrimarySport);
+      setAddingCustomPrimarySport(true);
+      return;
+    }
+
+    setPrimarySport(value);
+    setCustomPrimarySport("");
+    setAddingCustomPrimarySport(false);
+
+    setOtherSports((current) =>
+      current.filter(
+        (sport) => sport.toLowerCase() !== value.toLowerCase()
+      )
+    );
+  };
+
   const handleSaveProfile = async () => {
     setLoading(true);
     setMessage("Saving profile...");
@@ -219,7 +298,13 @@ export default function PublicProfilePage() {
         bio,
         public_slug: publicSlug,
         is_public: isPublic,
-        primary_sport: primarySport,
+        primary_sport: primarySport.trim(),
+        other_sports: cleanList(otherSports).filter(
+          (sport) =>
+            sport.toLowerCase() !==
+            primarySport.trim().toLowerCase()
+        ),
+        gender: gender || null,
         position,
         state: stateRegion,
         country,
@@ -320,7 +405,7 @@ export default function PublicProfilePage() {
                 onChange={(event) =>
                   setPreferredName(event.target.value)
                 }
-                placeholder="e.g. Josh"
+                placeholder="e.g. Ron"
                 className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
               />
             </div>
@@ -332,8 +417,9 @@ export default function PublicProfilePage() {
             </label>
 
             <p className="mt-1 text-xs leading-5 text-white/55">
-              Used to calculate athlete age and development data. Your full
-              date of birth is private and will not be displayed publicly.
+              Used to calculate athlete age and development data. Your
+              full date of birth is private and will not be displayed
+              publicly.
             </p>
 
             <input
@@ -369,7 +455,7 @@ export default function PublicProfilePage() {
               onChange={(event) =>
                 setHeadline(event.target.value)
               }
-              placeholder="e.g. Basketball Guard | Newcastle Falcons"
+              placeholder="e.g. Basketball Guard | Melbourne Tigers"
               className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
             />
           </div>
@@ -401,7 +487,7 @@ export default function PublicProfilePage() {
               onChange={(event) =>
                 setPublicSlug(event.target.value)
               }
-              placeholder="e.g. josh-phillips"
+              placeholder="e.g. Ron-Smith"
               className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
             />
 
@@ -414,23 +500,169 @@ export default function PublicProfilePage() {
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-[#081642] p-5">
             <div>
-              <label className="mb-2 block text-sm font-medium">
+              <label className="block text-sm font-medium">
                 Primary Sport
               </label>
 
-              <input
-                type="text"
-                value={primarySport}
-                onChange={(event) =>
-                  setPrimarySport(event.target.value)
-                }
-                placeholder="e.g. Basketball"
-                className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
-              />
+              <p className="mt-1 text-xs leading-5 text-white/55">
+                Your main sport anchors your RADR identity and discovery
+                profile.
+              </p>
             </div>
 
+            <select
+              value={
+                addingCustomPrimarySport ||
+                (primarySport &&
+                  !isCanonicalSport(primarySport))
+                  ? OTHER_SPORT_VALUE
+                  : primarySport
+              }
+              onChange={(event) =>
+                handlePrimarySportSelection(event.target.value)
+              }
+              className="mt-4 w-full rounded-xl border border-white/10 bg-[#0B1F5C] px-4 py-3 outline-none focus:border-[#D8F200]/50"
+            >
+              <option value="">Select primary sport</option>
+
+              {RADR_SPORTS.map((sport) => (
+                <option key={sport} value={sport}>
+                  {sport}
+                </option>
+              ))}
+
+              <option value={OTHER_SPORT_VALUE}>
+                Other / Sport not listed
+              </option>
+            </select>
+
+            {addingCustomPrimarySport && (
+              <input
+                type="text"
+                value={customPrimarySport}
+                onChange={(event) => {
+                  setCustomPrimarySport(event.target.value);
+                  setPrimarySport(event.target.value);
+                }}
+                placeholder="Enter your sport"
+                className="mt-3 w-full rounded-xl border border-white/10 bg-[#0B1F5C] px-4 py-3 outline-none focus:border-[#D8F200]/50"
+              />
+            )}
+
+            <div className="mt-5 border-t border-white/10 pt-5">
+              <label className="block text-sm font-medium">
+                Other Sports
+              </label>
+
+              <p className="mt-1 text-xs leading-5 text-white/55">
+                Add any other sports you actively compete or
+                participate in.
+              </p>
+
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <select
+                  value={
+                    newOtherSport &&
+                    !isCanonicalSport(newOtherSport)
+                      ? OTHER_SPORT_VALUE
+                      : newOtherSport
+                  }
+                  onChange={(event) => {
+                    const value = event.target.value;
+
+                    if (value === OTHER_SPORT_VALUE) {
+                      setNewOtherSport("");
+                      setAddingCustomOtherSport(true);
+                    } else {
+                      setNewOtherSport(value);
+                      setAddingCustomOtherSport(false);
+                    }
+                  }}
+                  className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#0B1F5C] px-4 py-3 outline-none focus:border-[#D8F200]/50"
+                >
+                  <option value="">Select another sport</option>
+
+                  {RADR_SPORTS.filter(
+                    (sport) =>
+                      sport !== primarySport &&
+                      !otherSports.includes(sport)
+                  ).map((sport) => (
+                    <option key={sport} value={sport}>
+                      {sport}
+                    </option>
+                  ))}
+
+                  <option value={OTHER_SPORT_VALUE}>
+                    Other / Sport not listed
+                  </option>
+                </select>
+
+                {newOtherSport && !addingCustomOtherSport && (
+                  <button
+                    type="button"
+                    onClick={addOtherSport}
+                    className="rounded-xl bg-[#D8F200] px-4 py-3 font-bold text-[#0B1F5C]"
+                  >
+                    Add Sport
+                  </button>
+                )}
+              </div>
+
+              {addingCustomOtherSport && (
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="text"
+                    value={newOtherSport}
+                    onChange={(event) =>
+                      setNewOtherSport(event.target.value)
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addOtherSport();
+                        setAddingCustomOtherSport(false);
+                      }
+                    }}
+                    placeholder="e.g. Equestrian, Futsal, Squash"
+                    className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#0B1F5C] px-4 py-3 outline-none focus:border-[#D8F200]/50"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addOtherSport();
+
+                      if (newOtherSport.trim()) {
+                        setAddingCustomOtherSport(false);
+                      }
+                    }}
+                    className="rounded-xl bg-[#D8F200] px-4 py-3 font-bold text-[#0B1F5C]"
+                  >
+                    Add Sport
+                  </button>
+                </div>
+              )}
+
+              {otherSports.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {otherSports.map((sport) => (
+                    <button
+                      key={sport}
+                      type="button"
+                      onClick={() => removeOtherSport(sport)}
+                      className="rounded-full border border-[#D8F200]/20 bg-[#D8F200]/10 px-3 py-2 text-sm font-semibold text-[#D8F200] hover:bg-[#D8F200]/15"
+                    >
+                      {sport} ×
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-medium">
                 Position
@@ -445,6 +677,28 @@ export default function PublicProfilePage() {
                 placeholder="e.g. Point Guard"
                 className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
               />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Gender
+              </label>
+
+              <select
+                value={gender}
+                onChange={(event) =>
+                  setGender(event.target.value)
+                }
+                className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
+              >
+                <option value="">Select gender</option>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+                <option value="Non-binary">Non-binary</option>
+                <option value="Prefer not to say">
+                  Prefer not to say
+                </option>
+              </select>
             </div>
           </div>
 
@@ -493,7 +747,7 @@ export default function PublicProfilePage() {
               onChange={(event) =>
                 setSchoolName(event.target.value)
               }
-              placeholder="e.g. Newcastle High School"
+              placeholder="e.g. Brisbane High School"
               className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
             />
           </div>

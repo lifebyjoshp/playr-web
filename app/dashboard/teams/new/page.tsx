@@ -9,6 +9,11 @@ import {
   getActiveAthleteContext,
 } from "../../../../lib/activeAthlete";
 import { supabase } from "../../../../lib/supabase";
+import {
+  OTHER_SPORT_VALUE,
+  RADR_SPORTS,
+  isCanonicalSport,
+} from "../../../../lib/sports";
 
 type ExistingTeam = {
   id: string;
@@ -54,6 +59,7 @@ export default function CreateTeamPage() {
     useState(true);
 
   const [sport, setSport] = useState("");
+  const [customSport, setCustomSport] = useState("");
   const [country, setCountry] = useState("Australia");
   const [stateRegion, setStateRegion] = useState("");
   const [associationName, setAssociationName] = useState("");
@@ -130,6 +136,10 @@ export default function CreateTeamPage() {
 
         if (athlete.primary_sport) {
           setSport(athlete.primary_sport);
+
+          if (!isCanonicalSport(athlete.primary_sport)) {
+            setCustomSport(athlete.primary_sport);
+          }
         }
       } catch (error) {
         console.error(
@@ -502,34 +512,63 @@ export default function CreateTeamPage() {
           ) : (
             <>
               <div>
-  <label className="mb-2 block text-sm font-medium">
-    Sport *
-  </label>
+                <label className="mb-2 block text-sm font-medium">
+                  Sport *
+                </label>
 
-  <select
-    value={sport}
-    onChange={(event) =>
-      setSport(event.target.value)
-    }
-    className="w-full rounded-xl bg-[#081642] px-4 py-3"
-  >
-    <option value="">Select sport</option>
-<option>Basketball</option>
-<option>Football/Soccer</option>
-<option>Netball</option>
-<option>Rugby League</option>
-<option>Rugby Union</option>
-<option>AFL</option>
-<option>Athletics</option>
-<option>Cricket</option>
-<option>Hockey</option>
-<option>Volleyball</option>
-<option>Nippers / Surf Life Saving</option>
-<option>Swimming</option>
-<option>Touch Football</option>
-<option>Oztag</option>
-  </select>
-</div>
+                <select
+                  value={
+                    sport && !isCanonicalSport(sport)
+                      ? OTHER_SPORT_VALUE
+                      : sport
+                  }
+                  onChange={(event) => {
+                    const value = event.target.value;
+
+                    if (value === OTHER_SPORT_VALUE) {
+                      setSport(customSport.trim());
+                      return;
+                    }
+
+                    setSport(value);
+                    setCustomSport("");
+                  }}
+                  className="w-full rounded-xl bg-[#081642] px-4 py-3"
+                >
+                  <option value="">Select sport</option>
+                  {RADR_SPORTS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                  <option value={OTHER_SPORT_VALUE}>
+                    Other / Sport not listed
+                  </option>
+                </select>
+
+                {sport && !isCanonicalSport(sport) && (
+                  <div className="mt-3 rounded-2xl border border-[#D8F200]/20 bg-[#D8F200]/5 p-4">
+                    <label className="mb-2 block text-sm font-medium">
+                      Team sport
+                    </label>
+                    <input
+                      type="text"
+                      value={customSport}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setCustomSport(value);
+                        setSport(value);
+                      }}
+                      placeholder="e.g. Equestrian, Futsal, Squash"
+                      className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none focus:ring-1 focus:ring-[#D8F200]/50"
+                    />
+                    <p className="mt-2 text-xs leading-5 text-white/50">
+                      Enter the sport for this team. RADR will save the actual
+                      sport name, not &quot;Other&quot;.
+                    </p>
+                  </div>
+                )}
+              </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>

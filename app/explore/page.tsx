@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import AppShell from "../../components/AppShell";
+import { getAthleteSports, RADR_SPORTS } from "../../lib/sports";
 
 type PublicProfile = {
   id: string;
@@ -12,10 +13,13 @@ type PublicProfile = {
   headline: string | null;
   bio: string | null;
   primary_sport: string | null;
+  other_sports: string[];
   position: string | null;
   is_public: boolean | null;
   state: string | null;
   country: string | null;
+  gender: string | null;
+  age_band: string | null;
 };
 
 type MembershipRow = {
@@ -47,6 +51,8 @@ export default function ExplorePage() {
 
   const [search, setSearch] = useState("");
   const [sport, setSport] = useState("");
+  const [ageBand, setAgeBand] = useState("");
+  const [gender, setGender] = useState("");
   const [position, setPosition] = useState("");
   const [location, setLocation] = useState("");
   const [association, setAssociation] = useState("");
@@ -58,21 +64,35 @@ export default function ExplorePage() {
       setLoading(true);
 
       const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select(
-          "id, full_name, public_slug, headline, bio, primary_sport, position, is_public, state, country"
-        )
-        .eq("is_public", true)
-        .not("public_slug", "is", null)
-        .order("full_name", { ascending: true });
+        .rpc("get_public_explore_profiles");
 
       if (profileError || !profileData) {
+        console.error("Unable to load public Explore profiles:", profileError);
         setProfiles([]);
         setLoading(false);
         return;
       }
 
-      const publicProfileIds = profileData.map((profile) => profile.id);
+      const publicProfiles: PublicProfile[] = (
+        profileData as PublicProfile[]
+      )
+        .map((profile) => ({
+          ...profile,
+          other_sports: Array.isArray(profile.other_sports)
+            ? profile.other_sports
+            : [],
+        }))
+        .sort((a, b) =>
+          (a.full_name || "").localeCompare(b.full_name || "")
+        );
+
+      const publicProfileIds = publicProfiles.map((profile) => profile.id);
+
+      if (publicProfileIds.length === 0) {
+        setProfiles([]);
+        setLoading(false);
+        return;
+      }
 
       const { data: membershipData, error: membershipError } = await supabase
         .from("player_team_memberships")
@@ -93,7 +113,7 @@ export default function ExplorePage() {
         .in("profile_id", publicProfileIds);
 
       if (membershipError || !membershipData) {
-        const mergedWithoutMemberships: ExploreProfile[] = profileData.map(
+        const mergedWithoutMemberships: ExploreProfile[] = publicProfiles.map(
           (profile) => ({
             ...profile,
             associations: [],
@@ -113,7 +133,7 @@ export default function ExplorePage() {
 
       const memberships = membershipData as unknown as MembershipRow[];
 
-      const mergedProfiles: ExploreProfile[] = profileData.map((profile) => {
+      const mergedProfiles: ExploreProfile[] = publicProfiles.map((profile) => {
         const profileMemberships = memberships.filter(
           (membership) => membership.profile_id === profile.id
         );
@@ -185,7 +205,19 @@ export default function ExplorePage() {
           team.toLowerCase().includes(search.toLowerCase())
         );
 
-      const matchesSport = sport === "" || profile.primary_sport === sport;
+      const athleteSports = getAthleteSports(
+        profile.primary_sport,
+        profile.other_sports
+      );
+
+      const matchesSport =
+        sport === "" || athleteSports.includes(sport);
+
+      const matchesAge =
+        ageBand === "" || profile.age_band === ageBand;
+
+      const matchesGender =
+        gender === "" || profile.gender === gender;
 
       const matchesPosition =
         position === "" ||
@@ -218,6 +250,8 @@ export default function ExplorePage() {
       return (
         matchesSearch &&
         matchesSport &&
+        matchesAge &&
+        matchesGender &&
         matchesPosition &&
         matchesLocation &&
         matchesAssociation &&
@@ -225,15 +259,35 @@ export default function ExplorePage() {
         matchesClub
       );
     });
-  }, [profiles, search, sport, position, location, association, competition, club]);
+  }, [
+    profiles,
+    search,
+    sport,
+    ageBand,
+    gender,
+    position,
+    location,
+    association,
+    competition,
+    club,
+  ]);
 
   const sports = Array.from(
-    new Set(
-      profiles
-        .map((profile) => profile.primary_sport)
-        .filter((value): value is string => Boolean(value))
-    )
-  ).sort();
+    new Set([
+      ...RADR_SPORTS,
+      ...profiles.flatMap((profile) =>
+        getAthleteSports(profile.primary_sport, profile.other_sports)
+      ),
+    ])
+  ).sort((a, b) => a.localeCompare(b));
+
+  const ageBands = [
+    "9 & Under",
+    "10–12",
+    "13–15",
+    "16–18",
+    "19+",
+  ];
 
   return (
     <AppShell>
@@ -248,12 +302,12 @@ export default function ExplorePage() {
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-5 text-white/75 sm:mt-3 sm:text-base sm:leading-normal">
             Browse public athlete profiles and discover talent by sport,
-            position, location, association, competition, and club.
+            age, gender, position, location, association, competition, and club.
           </p>
         </div>
 
         <div className="mb-5 rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur sm:mb-6 sm:rounded-3xl sm:p-5 md:mb-8 md:p-6">
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2 xl:grid-cols-5">
             <div>
               <label className="mb-1.5 block text-xs font-medium sm:mb-2 sm:text-sm">
                 Search name, headline or team
@@ -280,6 +334,40 @@ export default function ExplorePage() {
                     {item}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium sm:mb-2 sm:text-sm">
+                Age
+              </label>
+              <select
+                value={ageBand}
+                onChange={(e) => setAgeBand(e.target.value)}
+                className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
+              >
+                <option value="">All Ages</option>
+                {ageBands.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium sm:mb-2 sm:text-sm">
+                Gender
+              </label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="min-h-[44px] w-full rounded-lg bg-[#081642] px-3 py-2.5 text-sm text-white outline-none sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
+              >
+                <option value="">All Genders</option>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+                <option value="Non-binary">Non-binary</option>
               </select>
             </div>
 
@@ -343,6 +431,8 @@ export default function ExplorePage() {
                 onClick={() => {
                   setSearch("");
                   setSport("");
+                  setAgeBand("");
+                  setGender("");
                   setPosition("");
                   setLocation("");
                   setAssociation("");
