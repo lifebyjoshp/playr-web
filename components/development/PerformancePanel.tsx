@@ -446,9 +446,9 @@ export default function PerformancePanel({
     }
 
     const value =
-      activity.unit === "seconds" || activity.unit === "s"
-        ? parseDuration(hours, minutes, seconds, milliseconds)
-        : Number(numericValue);
+  activity.unit === "seconds"
+    ? parseDuration(hours, minutes, seconds, milliseconds)
+    : Number(numericValue);
 
     if (value === null || !Number.isFinite(value) || value <= 0) {
       setMessage("Enter a valid result greater than zero.");
