@@ -73,7 +73,7 @@ const LIBRARY: Activity[] = [
 ];
 
 const inputClass =
-  "w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 text-white outline-none focus:border-[#D8F200]";
+  "w-full min-w-0 rounded-xl border border-white/10 bg-[#081642] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D8F200] md:px-4 md:py-3 md:text-base";
 
 function today() {
   const date = new Date();
@@ -93,32 +93,26 @@ function formatDate(value: string) {
 }
 
 function formatDuration(value: number) {
-  const totalMilliseconds = Math.round(value * 1000);
-  const hours = Math.floor(totalMilliseconds / 3600000);
-  const minutes = Math.floor((totalMilliseconds % 3600000) / 60000);
-  const seconds = Math.floor((totalMilliseconds % 60000) / 1000);
-  const milliseconds = totalMilliseconds % 1000;
+  const total = Math.round(value * 1000);
+  const hours = Math.floor(total / 3600000);
+  const minutes = Math.floor((total % 3600000) / 60000);
+  const seconds = Math.floor((total % 60000) / 1000);
+  const millis = total % 1000;
 
-  const secondPart = String(seconds).padStart(2, "0");
-  const milliPart = String(milliseconds).padStart(3, "0");
+  const ss = String(seconds).padStart(2, "0");
+  const ms = String(millis).padStart(3, "0");
 
   if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${secondPart}.${milliPart}`;
+    return `${hours}:${String(minutes).padStart(2, "0")}:${ss}.${ms}`;
   }
-
-  if (minutes > 0) {
-    return `${minutes}:${secondPart}.${milliPart}`;
-  }
-
-  return `${seconds}.${milliPart}s`;
+  if (minutes > 0) return `${minutes}:${ss}.${ms}`;
+  return `${seconds}.${ms}s`;
 }
 
 function formatValue(value: number, unit: string) {
-  if (unit === "seconds" || unit === "s") {
-    return formatDuration(value);
-  }
-
-  return `${value} ${unit}`;
+  return unit === "seconds" || unit === "s"
+    ? formatDuration(value)
+    : `${value} ${unit}`;
 }
 
 function parseDuration(
@@ -128,17 +122,14 @@ function parseDuration(
   milliseconds: string
 ): number | null {
   const parts = [hours, minutes, seconds, milliseconds];
-
-  if (parts.every((part) => part.trim() === "")) {
-    return null;
-  }
+  if (parts.every((part) => part.trim() === "")) return null;
 
   const numbers = parts.map((part) =>
     part.trim() === "" ? 0 : Number(part)
   );
 
   if (
-    numbers.some((number) => !Number.isInteger(number) || number < 0) ||
+    numbers.some((n) => !Number.isInteger(n) || n < 0) ||
     numbers[1] >= 60 ||
     numbers[2] >= 60 ||
     numbers[3] >= 1000
@@ -146,23 +137,22 @@ function parseDuration(
     return null;
   }
 
-  const result =
+  const value =
     numbers[0] * 3600 +
     numbers[1] * 60 +
     numbers[2] +
     numbers[3] / 1000;
 
-  return result > 0 ? result : null;
+  return value > 0 ? value : null;
 }
 
 function durationParts(value: number) {
-  const milliseconds = Math.round(value * 1000);
-
+  const ms = Math.round(value * 1000);
   return {
-    hours: String(Math.floor(milliseconds / 3600000)),
-    minutes: String(Math.floor((milliseconds % 3600000) / 60000)),
-    seconds: String(Math.floor((milliseconds % 60000) / 1000)),
-    milliseconds: String(milliseconds % 1000).padStart(3, "0"),
+    hours: String(Math.floor(ms / 3600000)),
+    minutes: String(Math.floor((ms % 3600000) / 60000)),
+    seconds: String(Math.floor((ms % 60000) / 1000)),
+    milliseconds: String(ms % 1000).padStart(3, "0"),
   };
 }
 
@@ -187,23 +177,18 @@ function isBetter(
 function progressText(
   baseline: number,
   best: number,
-  unit: string,
   direction: Direction
 ) {
-  const difference =
+  const improvement =
     direction === "lower"
       ? baseline - best
       : best - baseline;
 
-  if (Math.abs(difference) < 0.000001) {
-    return "Baseline established";
+  if (Math.abs(improvement) < 0.000001) {
+    return "Baseline";
   }
 
-  const percentage = baseline > 0
-    ? (difference / baseline) * 100
-    : 0;
-
-  return `+${percentage.toFixed(1)}% improvement`;
+  return `+${((improvement / baseline) * 100).toFixed(1)}%`;
 }
 
 export default function PerformancePanel({
@@ -363,10 +348,12 @@ export default function PerformancePanel({
 
   function openNew(activity?: Activity) {
     resetForm();
+
     if (activity) {
       setSelectedActivity(activity);
       setActivitySearch(activity.name);
     }
+
     setShowForm(true);
     setMessage("");
   }
@@ -375,13 +362,12 @@ export default function PerformancePanel({
     resetForm();
     setEditingId(result.id);
 
-    const activity: Activity = {
+    setSelectedActivity({
       name: result.event_name,
       unit: result.unit as Unit,
       direction: result.better_direction,
-    };
+    });
 
-    setSelectedActivity(activity);
     setActivitySearch(result.event_name);
 
     if (result.unit === "seconds" || result.unit === "s") {
@@ -395,6 +381,7 @@ export default function PerformancePanel({
     }
 
     const date = new Date(result.recorded_at);
+
     setRecordedDate(
       [
         date.getFullYear(),
@@ -434,7 +421,10 @@ export default function PerformancePanel({
           unit: group.unit as Unit,
           direction: group.direction,
         })),
-      ].find((item) => normalizeName(item.name) === normalizeName(name));
+      ].find(
+        (item) =>
+          normalizeName(item.name) === normalizeName(name)
+      );
 
       if (existing) {
         setMessage(
@@ -456,7 +446,7 @@ export default function PerformancePanel({
     }
 
     const value =
-      activity.unit === "seconds"
+      activity.unit === "seconds" || activity.unit === "s"
         ? parseDuration(hours, minutes, seconds, milliseconds)
         : Number(numericValue);
 
@@ -501,57 +491,136 @@ export default function PerformancePanel({
     setSaving(false);
 
     if (response.error) {
-      setMessage(`Unable to save result: ${response.error.message}`);
+      setMessage(
+        `Unable to save result: ${response.error.message}`
+      );
       return;
     }
+
+    const wasEditing = Boolean(editingId);
 
     resetForm();
     setShowForm(false);
     await loadResults();
-    setMessage(editingId ? "Result updated." : "Result recorded.");
+
+    setMessage(
+      wasEditing ? "Result updated." : "Result recorded."
+    );
   }
+
+  const resultHistory = (group: (typeof groups)[number]) => (
+    <div className="space-y-2">
+      {group.history.map((result) => (
+        <div
+          key={result.id}
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#081642] p-3 md:p-4"
+        >
+          <div>
+            <p className="text-sm font-bold md:text-base">
+              {formatValue(result.value, result.unit)}
+            </p>
+
+            <p className="mt-1 text-xs text-white/50">
+              {formatDate(result.recorded_at)}
+              {result.competition_name
+                ? ` • ${result.competition_name}`
+                : ""}
+            </p>
+
+            {result.notes && (
+              <p className="mt-1 text-xs text-white/60">
+                {result.notes}
+              </p>
+            )}
+          </div>
+
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => openEdit(result)}
+              className="rounded-lg border border-white/20 px-3 py-2 text-xs hover:bg-white/10"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 
   if (loading) {
     return (
-      <div className="rounded-2xl bg-white/10 p-6 text-white/65">
+      <div className="rounded-xl bg-white/10 p-4 text-sm text-white/60">
         Loading Fitness &amp; Performance...
       </div>
     );
   }
 
   return (
-    <div className="space-y-7">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <div className="space-y-4 md:space-y-7">
+      <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#D8F200]">
+          <p className="hidden text-xs font-bold uppercase tracking-[0.2em] text-[#D8F200] md:block">
             Fitness &amp; Performance
           </p>
-          <h2 className="mt-2 text-2xl font-extrabold">
+
+          <h2 className="text-base font-extrabold md:mt-2 md:text-2xl">
             Your activities. Your progress.
           </h2>
-          <p className="mt-2 text-sm text-white/60">
-            Track any activity, build your history and celebrate every personal best.
+
+          <p className="mt-1 text-xs text-white/60 md:mt-2 md:text-sm">
+            Track your results and celebrate improvement.
           </p>
         </div>
 
         {canManage && (
           <button
             type="button"
-            onClick={() => openNew()}
-            className="rounded-xl bg-[#D8F200] px-5 py-3 font-bold text-[#081642]"
+            onClick={() => {
+              if (showForm) {
+                resetForm();
+                setShowForm(false);
+              } else {
+                openNew();
+              }
+            }}
+            className="hidden rounded-xl bg-[#D8F200] px-5 py-3 font-bold text-[#081642] md:block"
           >
-            + Add Result
+            {showForm ? "Close Form" : "+ Add Result"}
           </button>
         )}
       </div>
 
       {message && (
-        <div className="rounded-xl border border-white/10 bg-white/10 p-4 text-sm">
+        <div className="rounded-xl border border-white/10 bg-white/10 p-3 text-sm">
           {message}
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* MOBILE SUMMARY */}
+      <div className="grid grid-cols-3 gap-1.5 md:hidden">
+        {[
+          ["Activities", groups.length],
+          ["Attempts", results.length],
+          ["PBs", groups.length],
+        ].map(([label, number]) => (
+          <div
+            key={label}
+            className="rounded-xl border border-white/10 bg-white/10 px-2 py-3 text-center"
+          >
+            <p className="text-[10px] uppercase text-white/50">
+              {label}
+            </p>
+
+            <p className="mt-1 text-xl font-extrabold">
+              {number}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* DESKTOP SUMMARY */}
+      <div className="hidden gap-4 md:grid md:grid-cols-3">
         {[
           ["Activities Tracked", groups.length],
           ["Total Attempts", results.length],
@@ -561,172 +630,59 @@ export default function PerformancePanel({
             key={label}
             className="rounded-2xl border border-white/10 bg-white/10 p-5"
           >
-            <p className="text-xs uppercase text-white/50">{label}</p>
-            <p className="mt-3 text-3xl font-extrabold">{number}</p>
+            <p className="text-xs uppercase text-white/50">
+              {label}
+            </p>
+
+            <p className="mt-3 text-3xl font-extrabold">
+              {number}
+            </p>
           </div>
         ))}
       </div>
 
-      <input
-        className={inputClass}
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="Search your tracked activities..."
-      />
-
-      {visibleGroups.length === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-white/10 p-8 text-center">
-          <p className="text-xl font-bold">
-            {groups.length === 0
-              ? "Start your development journey"
-              : "No matching activities"}
-          </p>
-          <p className="mt-2 text-sm text-white/60">
-            {groups.length === 0
-              ? "Record your first activity to establish your baseline."
-              : "Try another search."}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {visibleGroups.map((group) => (
-            <div
-              key={group.key}
-              className="overflow-hidden rounded-2xl border border-white/10 bg-white/10"
-            >
-              <button
-                type="button"
-                onClick={() =>
-                  setExpandedKey(
-                    expandedKey === group.key ? null : group.key
-                  )
-                }
-                className="grid w-full gap-4 p-5 text-left sm:grid-cols-[minmax(0,1.5fr)_1fr_1fr_auto]"
-              >
-                <div>
-                  <p className="text-lg font-bold">{group.name}</p>
-                  <p className="mt-1 text-xs text-white/50">
-                    {group.count} attempt{group.count === 1 ? "" : "s"}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-white/45">Personal Best</p>
-                  <p className="mt-1 font-bold">
-                    {formatValue(group.best.value, group.unit)}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-white/45">Progress</p>
-                  <p className="mt-1 font-bold text-[#D8F200]">
-                    {progressText(
-                      group.baseline.value,
-                      group.best.value,
-                      group.unit,
-                      group.direction
-                    )}
-                  </p>
-                </div>
-
-                <span className="self-center text-white/50">
-                  {expandedKey === group.key ? "−" : "+"}
-                </span>
-              </button>
-
-              {expandedKey === group.key && (
-                <div className="border-t border-white/10 bg-[#081642] p-5">
-                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs text-white/45">Latest Result</p>
-                      <p className="mt-1 font-semibold">
-                        {formatValue(group.latest.value, group.unit)}
-                      </p>
-                    </div>
-
-                    {canManage && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openNew({
-                            name: group.name,
-                            unit: group.unit as Unit,
-                            direction: group.direction,
-                          })
-                        }
-                        className="rounded-xl bg-[#D8F200] px-4 py-2 text-sm font-bold text-[#081642]"
-                      >
-                        + New Attempt
-                      </button>
-                    )}
-                  </div>
-
-                  <h3 className="mb-3 font-bold">Result History</h3>
-
-                  <div className="space-y-2">
-                    {group.history.map((result) => (
-                      <div
-                        key={result.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 p-4"
-                      >
-                        <div>
-                          <p className="font-semibold">
-                            {formatValue(result.value, result.unit)}
-                          </p>
-                          <p className="mt-1 text-xs text-white/50">
-                            {formatDate(result.recorded_at)}
-                            {result.competition_name
-                              ? ` • ${result.competition_name}`
-                              : ""}
-                          </p>
-                          {result.notes && (
-                            <p className="mt-1 text-xs text-white/60">
-                              {result.notes}
-                            </p>
-                          )}
-                        </div>
-
-                        {canManage && (
-                          <button
-                            type="button"
-                            onClick={() => openEdit(result)}
-                            className="rounded-lg border border-white/20 px-3 py-2 text-sm hover:bg-white/10"
-                          >
-                            Edit
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+      {/* MOBILE RECORD BUTTON */}
+      {canManage && (
+        <button
+          type="button"
+          onClick={() => {
+            if (showForm) {
+              resetForm();
+              setShowForm(false);
+            } else {
+              openNew();
+            }
+          }}
+          className="w-full rounded-xl bg-[#D8F200] px-4 py-3 text-sm font-extrabold text-[#081642] md:hidden"
+        >
+          {showForm ? "− Close Result Form" : "+ Record Result"}
+        </button>
       )}
 
+      {/* RECORDING FORM */}
       {showForm && canManage && (
-        <div className="rounded-3xl border border-[#D8F200]/25 bg-white/10 p-6">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-2xl font-extrabold">
+        <div className="rounded-2xl border border-[#D8F200]/25 bg-white/10 p-3 md:p-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold md:text-2xl">
               {editingId ? "Edit Result" : "Record Result"}
             </h3>
+
             <button
               type="button"
               onClick={() => {
                 resetForm();
                 setShowForm(false);
               }}
-              className="text-sm text-white/60 hover:text-white"
+              className="text-xs text-white/60"
             >
               Close
             </button>
           </div>
 
-          <form onSubmit={saveResult} className="mt-6 space-y-5">
+          <form onSubmit={saveResult} className="mt-4 space-y-4">
             {!editingId && (
               <div>
-                <label className="mb-2 block text-sm font-medium">
+                <label className="mb-2 block text-sm">
                   Activity
                 </label>
 
@@ -743,7 +699,7 @@ export default function PerformancePanel({
                     />
 
                     {!selectedActivity && (
-                      <div className="mt-2 max-h-52 overflow-y-auto rounded-xl border border-white/10 bg-[#081642]">
+                      <div className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-white/10 bg-[#081642]">
                         {availableActivities.map((activity) => (
                           <button
                             key={activity.name}
@@ -752,7 +708,7 @@ export default function PerformancePanel({
                               setSelectedActivity(activity);
                               setActivitySearch(activity.name);
                             }}
-                            className="block w-full border-b border-white/10 px-4 py-3 text-left text-sm hover:bg-white/10"
+                            className="block w-full border-b border-white/10 px-3 py-2.5 text-left text-sm hover:bg-white/10"
                           >
                             {activity.name}
                           </button>
@@ -766,7 +722,7 @@ export default function PerformancePanel({
                         setIsCustom(true);
                         setSelectedActivity(null);
                       }}
-                      className="mt-3 text-sm font-semibold text-[#D8F200]"
+                      className="mt-3 text-xs font-bold text-[#D8F200]"
                     >
                       + Create custom activity
                     </button>
@@ -801,17 +757,23 @@ export default function PerformancePanel({
                       className={inputClass}
                       value={customDirection}
                       onChange={(event) =>
-                        setCustomDirection(event.target.value as Direction)
+                        setCustomDirection(
+                          event.target.value as Direction
+                        )
                       }
                     >
-                      <option value="higher">Higher is better</option>
-                      <option value="lower">Lower is better</option>
+                      <option value="higher">
+                        Higher is better
+                      </option>
+                      <option value="lower">
+                        Lower is better
+                      </option>
                     </select>
 
                     <button
                       type="button"
                       onClick={() => setIsCustom(false)}
-                      className="text-sm text-white/60"
+                      className="text-xs text-white/60"
                     >
                       Back to activity library
                     </button>
@@ -823,26 +785,28 @@ export default function PerformancePanel({
             {(selectedActivity || isCustom) && (
               <>
                 <div>
-                  <label className="mb-2 block text-sm font-medium">
+                  <label className="mb-2 block text-sm">
                     Result
                     {selectedActivity
                       ? ` • ${selectedActivity.name}`
                       : ""}
                   </label>
 
-                  {(isCustom ? customUnit : selectedActivity?.unit) ===
-                  "seconds" ? (
-                    <div className="grid grid-cols-4 gap-2">
+                  {(isCustom
+                    ? customUnit
+                    : selectedActivity?.unit) === "seconds" ? (
+                    <div className="grid grid-cols-4 gap-1.5">
                       {[
-                        ["Hours", hours, setHours],
-                        ["Minutes", minutes, setMinutes],
-                        ["Seconds", seconds, setSeconds],
-                        ["Millis", milliseconds, setMilliseconds],
+                        ["Hrs", hours, setHours],
+                        ["Min", minutes, setMinutes],
+                        ["Sec", seconds, setSeconds],
+                        ["Ms", milliseconds, setMilliseconds],
                       ].map(([label, current, setter]) => (
-                        <div key={label as string}>
-                          <label className="mb-2 block text-xs text-white/55">
+                        <div key={label as string} className="min-w-0">
+                          <label className="mb-1 block text-[10px] text-white/55">
                             {label as string}
                           </label>
+
                           <input
                             type="number"
                             min="0"
@@ -869,16 +833,17 @@ export default function PerformancePanel({
                       onChange={(event) =>
                         setNumericValue(event.target.value)
                       }
-                      placeholder={`Enter result (${isCustom ? customUnit : selectedActivity?.unit})`}
+                      placeholder="Enter result"
                       required
                     />
                   )}
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium">
+                  <label className="mb-2 block text-sm">
                     Date
                   </label>
+
                   <input
                     type="date"
                     max={today()}
@@ -892,9 +857,10 @@ export default function PerformancePanel({
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium">
+                  <label className="mb-2 block text-sm">
                     Event / Competition (optional)
                   </label>
+
                   <input
                     className={inputClass}
                     value={competitionName}
@@ -906,12 +872,13 @@ export default function PerformancePanel({
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium">
+                  <label className="mb-2 block text-sm">
                     Notes (optional)
                   </label>
+
                   <textarea
                     className={inputClass}
-                    rows={3}
+                    rows={2}
                     value={notes}
                     onChange={(event) =>
                       setNotes(event.target.value)
@@ -923,7 +890,7 @@ export default function PerformancePanel({
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full rounded-xl bg-[#D8F200] px-5 py-3 font-bold text-[#081642] disabled:opacity-50"
+                  className="w-full rounded-xl bg-[#D8F200] px-5 py-3 text-sm font-bold text-[#081642] disabled:opacity-50"
                 >
                   {saving
                     ? "Saving..."
@@ -935,6 +902,223 @@ export default function PerformancePanel({
             )}
           </form>
         </div>
+      )}
+
+      <input
+        className={inputClass}
+        value={search}
+        onChange={(event) =>
+          setSearch(event.target.value)
+        }
+        placeholder="Search tracked activities..."
+      />
+
+      {visibleGroups.length === 0 ? (
+        <div className="rounded-xl border border-white/10 bg-white/10 p-5 text-center">
+          <p className="font-bold">
+            {groups.length === 0
+              ? "Start your development journey"
+              : "No matching activities"}
+          </p>
+
+          <p className="mt-1 text-xs text-white/60">
+            {groups.length === 0
+              ? "Record your first activity to establish a baseline."
+              : "Try another search."}
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* MOBILE ACTIVITY LIST */}
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-white/10 md:hidden">
+            {visibleGroups.map((group) => {
+              const active = expandedKey === group.key;
+
+              return (
+                <div
+                  key={group.key}
+                  className="border-b border-white/10 last:border-b-0"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedKey(
+                        active ? null : group.key
+                      )
+                    }
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-3 text-left ${
+                      active ? "bg-[#D8F200]/10" : ""
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-bold">
+                        {group.name}
+                      </p>
+
+                      <p className="mt-1 text-[10px] text-white/45">
+                        {group.count} attempts •{" "}
+                        {formatDate(group.latest.recorded_at)}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-sm font-extrabold">
+                        {formatValue(
+                          group.best.value,
+                          group.unit
+                        )}
+                      </p>
+
+                      <p className="text-[10px] font-bold text-[#D8F200]">
+                        {progressText(
+                          group.baseline.value,
+                          group.best.value,
+                          group.direction
+                        )}
+                      </p>
+                    </div>
+
+                    <span className="text-xs text-white/40">
+                      {active ? "−" : "+"}
+                    </span>
+                  </button>
+
+                  {active && (
+                    <div className="border-t border-white/10 bg-[#081642]/60 p-3">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <p className="text-xs font-bold">
+                          Result History
+                        </p>
+
+                        {canManage && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openNew({
+                                name: group.name,
+                                unit: group.unit as Unit,
+                                direction: group.direction,
+                              })
+                            }
+                            className="rounded-lg bg-[#D8F200] px-3 py-2 text-xs font-bold text-[#081642]"
+                          >
+                            + Attempt
+                          </button>
+                        )}
+                      </div>
+
+                      {resultHistory(group)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* DESKTOP ACTIVITY CARDS */}
+          <div className="hidden space-y-3 md:block">
+            {visibleGroups.map((group) => (
+              <div
+                key={group.key}
+                className="overflow-hidden rounded-2xl border border-white/10 bg-white/10"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedKey(
+                      expandedKey === group.key
+                        ? null
+                        : group.key
+                    )
+                  }
+                  className="grid w-full gap-4 p-5 text-left sm:grid-cols-[minmax(0,1.5fr)_1fr_1fr_auto]"
+                >
+                  <div>
+                    <p className="text-lg font-bold">
+                      {group.name}
+                    </p>
+
+                    <p className="mt-1 text-xs text-white/50">
+                      {group.count} attempts
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-white/45">
+                      Personal Best
+                    </p>
+
+                    <p className="mt-1 font-bold">
+                      {formatValue(
+                        group.best.value,
+                        group.unit
+                      )}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-white/45">
+                      Progress
+                    </p>
+
+                    <p className="mt-1 font-bold text-[#D8F200]">
+                      {progressText(
+                        group.baseline.value,
+                        group.best.value,
+                        group.direction
+                      )}
+                    </p>
+                  </div>
+
+                  <span className="self-center text-white/50">
+                    {expandedKey === group.key ? "−" : "+"}
+                  </span>
+                </button>
+
+                {expandedKey === group.key && (
+                  <div className="border-t border-white/10 bg-[#081642] p-5">
+                    <div className="mb-5 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-white/45">
+                          Latest Result
+                        </p>
+
+                        <p className="mt-1 font-semibold">
+                          {formatValue(
+                            group.latest.value,
+                            group.unit
+                          )}
+                        </p>
+                      </div>
+
+                      {canManage && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openNew({
+                              name: group.name,
+                              unit: group.unit as Unit,
+                              direction: group.direction,
+                            })
+                          }
+                          className="rounded-xl bg-[#D8F200] px-4 py-2 text-sm font-bold text-[#081642]"
+                        >
+                          + New Attempt
+                        </button>
+                      )}
+                    </div>
+
+                    <h3 className="mb-3 font-bold">
+                      Result History
+                    </h3>
+
+                    {resultHistory(group)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
