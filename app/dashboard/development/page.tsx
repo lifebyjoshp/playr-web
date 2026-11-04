@@ -1,7 +1,10 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import AppShell from "../../../components/AppShell";
+import PerformancePanel from "../../../components/development/PerformancePanel";
 import { getActiveAthleteContext } from "../../../lib/activeAthlete";
 import { supabase } from "../../../lib/supabase";
 
@@ -31,18 +34,7 @@ type Profile = {
   date_of_birth: string | null;
 };
 
-function getLocalDateString(date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-const MEASUREMENT_TYPES: {
-  type: MeasurementType;
-  unit: string;
-}[] = [
+const TYPES: { type: MeasurementType; unit: string }[] = [
   { type: "Height", unit: "cm" },
   { type: "Weight", unit: "kg" },
   { type: "Wingspan", unit: "cm" },
@@ -50,541 +42,255 @@ const MEASUREMENT_TYPES: {
   { type: "Vertical Jump", unit: "cm" },
 ];
 
-function calendarDaysBetween(
-  from: string | Date,
-  to: string | Date
-): number {
-  const start = new Date(from);
-  const end = new Date(to);
-
-  const startUtc = Date.UTC(
-    start.getFullYear(),
-    start.getMonth(),
-    start.getDate()
-  );
-
-  const endUtc = Date.UTC(
-    end.getFullYear(),
-    end.getMonth(),
-    end.getDate()
-  );
-
-  return Math.max(
-    0,
-    Math.floor((endUtc - startUtc) / 86400000)
-  );
+function today() {
+  const d = new Date();
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
-function ageAtDate(
-  dateOfBirth: string | null,
-  date: string
-): string {
-  if (!dateOfBirth) return "Age unavailable";
-
-  const dob = new Date(`${dateOfBirth}T00:00:00`);
-  const target = new Date(date);
-
-  let years =
-    target.getFullYear() - dob.getFullYear();
-
-  let months =
-    target.getMonth() - dob.getMonth();
-
-  let days =
-    target.getDate() - dob.getDate();
-
-  if (days < 0) {
-    const previousMonth = new Date(
-      target.getFullYear(),
-      target.getMonth(),
-      0
-    );
-
-    days += previousMonth.getDate();
-    months -= 1;
-  }
-
-  if (months < 0) {
-    months += 12;
-    years -= 1;
-  }
-
-  return `${years}y ${months}m ${days}d`;
+function daysSince(date: string) {
+  const d = new Date(date);
+  const now = new Date();
+  const a = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const b = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.max(0, Math.floor((b - a) / 86400000));
 }
 
-function formatDate(date: string): string {
-  return new Intl.DateTimeFormat("en-AU", {
+function formatDate(date: string) {
+  return new Date(date).toLocaleDateString("en-AU", {
     day: "numeric",
     month: "short",
     year: "numeric",
-  }).format(new Date(date));
+  });
 }
 
-function percentageChange(
-  previous: number | undefined,
-  current: number | undefined
-): number | null {
-  if (
-    previous === undefined ||
-    current === undefined ||
-    previous === 0
-  ) {
-    return null;
+function ageAtDate(dob: string | null, date: string) {
+  if (!dob) return "Age unavailable";
+  const birth = new Date(`${dob}T00:00:00`);
+  const target = new Date(date);
+  let years = target.getFullYear() - birth.getFullYear();
+  let months = target.getMonth() - birth.getMonth();
+  let days = target.getDate() - birth.getDate();
+
+  if (days < 0) {
+    days += new Date(target.getFullYear(), target.getMonth(), 0).getDate();
+    months--;
   }
-
-  return (
-    ((current - previous) / previous) *
-    100
-  );
+  if (months < 0) {
+    months += 12;
+    years--;
+  }
+  return `${years}y ${months}m ${days}d`;
 }
 
-function freshnessScore(days: number): number {
+function percentChange(first?: number, latest?: number) {
+  if (first === undefined || latest === undefined || first === 0) return null;
+  return ((latest - first) / first) * 100;
+}
+
+function changeLabel(value: number | null) {
+  if (value === null) return "No comparison yet";
+  if (value > 0) return `↑ ${value.toFixed(1)}%`;
+  if (value < 0) return `↓ ${Math.abs(value).toFixed(1)}%`;
+  return "No change";
+}
+
+function freshness(days: number) {
   if (days <= 30) return 100;
   if (days <= 60) return 80;
   if (days <= 90) return 60;
   if (days <= 120) return 40;
   if (days <= 180) return 20;
-
   return 0;
 }
 
-function changeLabel(
-  value: number | null
-): string {
-  if (value === null) {
-    return "No comparison yet";
-  }
-
-  if (value > 0) {
-    return `↑ ${value.toFixed(1)}%`;
-  }
-
-  if (value < 0) {
-    return `↓ ${Math.abs(value).toFixed(1)}%`;
-  }
-
-  return "No change";
-}
+const inputStyle =
+  "w-full rounded-xl border border-white/10 bg-[#081642] px-4 py-3 text-white outline-none focus:border-[#D8F200]";
 
 export default function DevelopmentPage() {
-  const [profile, setProfile] =
-    useState<Profile | null>(null);
-
-  const [authUserId, setAuthUserId] =
-    useState<string | null>(null);
-
-  const [athleteProfileId, setAthleteProfileId] =
-    useState<string | null>(null);
-
-  const [isGuardianManaged, setIsGuardianManaged] =
-    useState(false);
-
-  const [canManageMetrics, setCanManageMetrics] =
-    useState(false);
-
-  const [measurements, setMeasurements] =
-    useState<Measurement[]>([]);
-
-  const [selectedType, setSelectedType] =
-    useState<MeasurementType>("Height");
-
+  const [tab, setTab] = useState<"physical" | "performance">("physical");
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [athleteId, setAthleteId] = useState<string | null>(null);
+  const [guardianManaged, setGuardianManaged] = useState(false);
+  const [canManage, setCanManage] = useState(false);
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [selected, setSelected] = useState<MeasurementType>("Height");
   const [value, setValue] = useState("");
-
-  const [recordedDate, setRecordedDate] =
-    useState(() => getLocalDateString());
-
-  const [notes, setNotes] =
-    useState("");
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [saving, setSaving] =
-    useState(false);
-
-  const [message, setMessage] =
-    useState("");
-
+  const [date, setDate] = useState(today);
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
   const [messageType, setMessageType] =
-    useState<
-      "success" | "error" | "info"
-    >("info");
+    useState<"info" | "error" | "success">("info");
 
-  const loadDevelopment = async () => {
+  async function loadDevelopment() {
     setLoading(true);
-    setMessage("");
-
     try {
-      const context =
-        await getActiveAthleteContext();
+      const context = await getActiveAthleteContext();
 
-      if (!context) {
+      if (!context || !context.activeAthlete) {
+        setProfile(null);
+        setAthleteId(null);
         setAuthUserId(null);
-        setAthleteProfileId(null);
-        setProfile(null);
         setMeasurements([]);
-        setCanManageMetrics(false);
-        setIsGuardianManaged(false);
-        setMessageType("error");
-        setMessage("You must be logged in.");
-        return;
-      }
-
-      setAuthUserId(context.authUserId);
-      setIsGuardianManaged(context.isGuardianManaged);
-
-      if (!context.activeAthlete) {
-        setAthleteProfileId(null);
-        setProfile(null);
-        setMeasurements([]);
-        setCanManageMetrics(false);
+        setCanManage(false);
         setMessageType("error");
         setMessage(
-          context.requiresAthleteSelection
-            ? "Select the athlete you're managing before viewing Athlete Development."
-            : "No athlete profile is connected to this RADR account."
+          !context
+            ? "You must be logged in."
+            : context.requiresAthleteSelection
+              ? "Select the athlete you're managing before viewing Athlete Development."
+              : "No athlete profile is connected to this RADR account."
         );
         return;
       }
 
-      const activeAthleteId = context.activeAthlete.id;
-      setAthleteProfileId(activeAthleteId);
-
-      const hasMetricsPermission =
+      const id = context.activeAthlete.id;
+      const permission =
         context.isSelfManaged ||
         (context.isGuardianManaged &&
           context.activeGuardianPermissions?.canManageMetrics === true);
 
-      setCanManageMetrics(hasMetricsPermission);
+      setAthleteId(id);
+      setAuthUserId(context.authUserId);
+      setGuardianManaged(context.isGuardianManaged);
+      setCanManage(permission);
 
-      const [profileResponse, measurementResponse] =
-        await Promise.all([
-          supabase
-            .from("profiles")
-            .select(`
-              id,
-              full_name,
-              preferred_name,
-              date_of_birth
-            `)
-            .eq("id", activeAthleteId)
-            .single(),
+      const [p, m] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, full_name, preferred_name, date_of_birth")
+          .eq("id", id)
+          .single(),
+        supabase
+          .from("athlete_measurements")
+          .select("*")
+          .eq("athlete_profile_id", id)
+          .order("recorded_at", { ascending: false }),
+      ]);
 
-          supabase
-            .from("athlete_measurements")
-            .select("*")
-            .eq("athlete_profile_id", activeAthleteId)
-            .order("recorded_at", {
-              ascending: false,
-            }),
-        ]);
+      if (p.error) throw p.error;
+      if (m.error) throw m.error;
 
-      if (profileResponse.error) {
-        setMessageType("error");
-        setMessage(
-          `Unable to load athlete profile: ${profileResponse.error.message}`
-        );
-        return;
-      }
+      setProfile(p.data as Profile);
+      setMeasurements((m.data || []) as Measurement[]);
 
-      setProfile(profileResponse.data as Profile);
-
-      if (measurementResponse.error) {
-        setMessageType("error");
-        setMessage(
-          `Unable to load AD: ${measurementResponse.error.message}`
-        );
-        return;
-      }
-
-      setMeasurements(
-        (measurementResponse.data || []) as Measurement[]
-      );
-
-      if (!hasMetricsPermission) {
+      if (!permission) {
         setMessageType("info");
-        setMessage(
-          `You can view ${
-            context.activeAthlete.preferred_name ||
-            context.activeAthlete.full_name ||
-            "this athlete"
-          }'s AD, but you do not have permission to update measurements.`
-        );
+        setMessage("You can view this athlete's AD, but cannot update their measurements.");
+      } else {
+        setMessage("");
       }
     } catch (error) {
-      console.error("Unable to load Athlete Development:", error);
       setMessageType("error");
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to load Athlete Development."
+        error instanceof Error ? error.message : "Unable to load Athlete Development."
       );
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
     void loadDevelopment();
   }, []);
 
-  const groupedMeasurements =
-    useMemo(() => {
-      const groups = new Map<
-        MeasurementType,
-        Measurement[]
-      >();
-
-      for (const item of MEASUREMENT_TYPES) {
-        groups.set(
-          item.type,
-          measurements
-            .filter(
-              (measurement) =>
-                measurement.measurement_type ===
-                item.type
-            )
-            .sort(
-              (a, b) =>
-                new Date(
-                  b.recorded_at
-                ).getTime() -
-                new Date(
-                  a.recorded_at
-                ).getTime()
-            )
-        );
-      }
-
-      return groups;
-    }, [measurements]);
-
-  const latestMeasurements =
-    useMemo(
-      () =>
-        MEASUREMENT_TYPES.map(
-          (item) => {
-            const history =
-              groupedMeasurements.get(
-                item.type
-              ) || [];
-
-            const latest =
-              history[0] || null;
-
-            const previous =
-              history[1] || null;
-
-            const first =
-              history.length > 0
-                ? history[
-                    history.length - 1
-                  ]
-                : null;
-
-            return {
-              ...item,
-              history,
-              latest,
-              previous,
-              first,
-            };
-          }
-        ),
-      [groupedMeasurements]
-    );
+  const areas = useMemo(
+    () =>
+      TYPES.map((item) => {
+        const history = measurements
+          .filter((m) => m.measurement_type === item.type)
+          .sort(
+            (a, b) =>
+              new Date(b.recorded_at).getTime() -
+              new Date(a.recorded_at).getTime()
+          );
+        return {
+          ...item,
+          history,
+          latest: history[0] || null,
+          previous: history[1] || null,
+          first: history[history.length - 1] || null,
+        };
+      }),
+    [measurements]
+  );
 
   const adIndex = useMemo(() => {
-    const completed =
-      latestMeasurements.filter(
-        (item) => item.latest
-      ).length;
-
-    const completion =
-      (completed /
-        MEASUREMENT_TYPES.length) *
-      100;
-
-    const freshnessValues: number[] =
-      latestMeasurements
-        .filter(
-          (item) => item.latest
-        )
-        .map((item) =>
-          freshnessScore(
-            calendarDaysBetween(
-              item.latest!.recorded_at,
-              new Date()
-            )
-          )
-        );
-
-    const freshness =
-      freshnessValues.length > 0
-        ? freshnessValues.reduce<number>(
-            (
-              total,
-              current
-            ) =>
-              total + current,
-            0
-          ) /
-          freshnessValues.length
-        : 0;
-
-    const updatesLast180Days =
-      measurements.filter(
-        (measurement) =>
-          calendarDaysBetween(
-            measurement.recorded_at,
-            new Date()
-          ) <= 180
-      ).length;
-
+    const completed = areas.filter((a) => a.latest);
+    const completion = (completed.length / TYPES.length) * 100;
+    const avgFreshness = completed.length
+      ? completed.reduce((sum, a) => sum + freshness(daysSince(a.latest!.recorded_at)), 0) /
+        completed.length
+      : 0;
     const consistency =
-      Math.min(
-        100,
-        (updatesLast180Days /
-          10) *
-          100
-      );
+      Math.min(100, (measurements.filter((m) => daysSince(m.recorded_at) <= 180).length / 10) * 100);
 
-    return Math.round(
-      completion * 0.4 +
-        freshness * 0.35 +
-        consistency * 0.25
-    );
-  }, [
-    latestMeasurements,
-    measurements,
-  ]);
+    return Math.round(completion * 0.4 + avgFreshness * 0.35 + consistency * 0.25);
+  }, [areas, measurements]);
 
-  const lastAdUpdate =
-    useMemo(() => {
-      if (
-        measurements.length === 0
-      ) {
-        return null;
-      }
+  const selectedArea = areas.find((a) => a.type === selected)!;
+  const lastUpdate = measurements.length
+    ? measurements.reduce((a, b) =>
+        new Date(a.recorded_at) > new Date(b.recorded_at) ? a : b
+      )
+    : null;
 
-      return measurements.reduce(
-        (latest, measurement) =>
-          new Date(
-            measurement.recorded_at
-          ) >
-          new Date(
-            latest.recorded_at
-          )
-            ? measurement
-            : latest
-      );
-    }, [measurements]);
+  async function addMeasurement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const numeric = Number(value);
 
-  const handleAddMeasurement =
-    async (
-      event: React.FormEvent<HTMLFormElement>
-    ) => {
-      event.preventDefault();
+    if (!canManage || !authUserId || !athleteId) {
+      setMessageType("error");
+      setMessage("You do not have permission to update this athlete.");
+      return;
+    }
 
-      const numericValue =
-        Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0 || !date || date > today()) {
+      setMessageType("error");
+      setMessage("Enter a valid measurement and date.");
+      return;
+    }
 
-      if (
-        !Number.isFinite(
-          numericValue
-        ) ||
-        numericValue <= 0
-      ) {
-        setMessageType("error");
-        setMessage(
-          "Enter a valid measurement greater than zero."
-        );
-        return;
-      }
+    const unit = TYPES.find((t) => t.type === selected)!.unit;
+    setSaving(true);
 
-      if (!authUserId || !athleteProfileId) {
-        setMessageType("error");
-        setMessage(
-          "No active athlete is available."
-        );
-        return;
-      }
-
-      if (!canManageMetrics) {
-        setMessageType("error");
-        setMessage(
-          "You do not have permission to update measurements for this athlete."
-        );
-        return;
-      }
-
-      const config =
-        MEASUREMENT_TYPES.find(
-          (item) =>
-            item.type ===
-            selectedType
-        );
-
-      if (!config) return;
-
-      setSaving(true);
-      setMessageType("info");
-      setMessage(
-        "Updating AD..."
-      );
-
-      const { error } =
-        await supabase
-          .from(
-            "athlete_measurements"
-          )
-          .insert({
-            athlete_profile_id:
-              athleteProfileId,
-            measurement_type:
-              selectedType,
-            value:
-              numericValue,
-            unit: config.unit,
-            recorded_at:
-              `${recordedDate}T12:00:00`,
-            recorded_by:
-              authUserId,
-            notes:
-              notes.trim() ||
-              null,
-            verification_status:
-              "self_reported",
-          });
-
-      if (error) {
-        setMessageType("error");
-        setMessage(
-          `Unable to update AD: ${error.message}`
-        );
-        setSaving(false);
-        return;
-      }
+    try {
+      const { error } = await supabase.from("athlete_measurements").insert({
+        athlete_profile_id: athleteId,
+        measurement_type: selected,
+        value: numeric,
+        unit,
+        recorded_at: `${date}T12:00:00`,
+        recorded_by: authUserId,
+        notes: notes.trim() || null,
+        verification_status: "self_reported",
+      });
+      if (error) throw error;
 
       setValue("");
       setNotes("");
-
-      setMessageType("success");
-      setMessage(
-        "AD updated successfully."
-      );
-
       await loadDevelopment();
-
+      setMessageType("success");
+      setMessage("AD updated successfully.");
+    } catch (error) {
+      setMessageType("error");
+      setMessage(error instanceof Error ? error.message : "Unable to save measurement.");
+    } finally {
       setSaving(false);
-    };
+    }
+  }
 
   if (loading) {
     return (
       <AppShell>
         <section className="mx-auto max-w-7xl px-6 py-12">
-          Loading Athlete
-          Development...
+          Loading Athlete Development...
         </section>
       </AppShell>
     );
@@ -592,64 +298,39 @@ export default function DevelopmentPage() {
 
   return (
     <AppShell>
-      <section className="mx-auto max-w-7xl px-6 py-12">
-        <div className="mb-10 flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+      <section className="mx-auto max-w-7xl px-4 py-10 md:px-6">
+        <header className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#D8F200]">
-              AD • Athlete
-              Development
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#D8F200]">
+              AD • Athlete Development
             </p>
-
-            <h1 className="mt-3 text-4xl font-extrabold md:text-5xl">
-              {profile?.preferred_name ||
-                profile?.full_name ||
-                "Athlete"}
-              &apos;s AD
+            <h1 className="mt-3 text-4xl font-extrabold">
+              {profile?.preferred_name || profile?.full_name || "Athlete"}&apos;s AD
             </h1>
-
-            <p className="mt-3 max-w-3xl text-white/70">
-              Track physical
-              development, identify
-              trends and build a
-              long-term record of
-              athlete growth.
+            <p className="mt-3 max-w-2xl text-white/65">
+              Progress is King. Track your development, record your efforts and celebrate improvement.
             </p>
-
-            {isGuardianManaged && profile && (
-              <div className="mt-4 inline-flex rounded-full border border-[#D8F200]/20 bg-[#D8F200]/10 px-3 py-1.5 text-xs font-bold text-[#D8F200]">
-                Managing{" "}
-                {profile.preferred_name ||
-                  profile.full_name ||
-                  "athlete"}
-              </div>
+            {guardianManaged && profile && (
+              <p className="mt-3 text-sm font-semibold text-[#D8F200]">
+                Managing {profile.preferred_name || profile.full_name}
+              </p>
             )}
           </div>
-
-          <div className="rounded-2xl border border-[#D8F200]/20 bg-[#D8F200]/10 px-5 py-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
-              Last AD Update
-            </p>
-
+          <div className="rounded-2xl border border-white/10 bg-white/10 px-5 py-4">
+            <p className="text-xs uppercase text-white/50">Last physical AD update</p>
             <p className="mt-2 font-bold">
-              {lastAdUpdate
-                ? `${calendarDaysBetween(
-                    lastAdUpdate.recorded_at,
-                    new Date()
-                  )} days ago`
-                : "No updates yet"}
+              {lastUpdate ? `${daysSince(lastUpdate.recorded_at)} days ago` : "No updates yet"}
             </p>
           </div>
-        </div>
+        </header>
 
         {message && (
           <div
-            className={`mb-6 rounded-2xl p-4 text-sm font-medium ${
-              messageType ===
-              "success"
-                ? "bg-green-500/20 text-green-100"
-                : messageType ===
-                    "error"
-                  ? "bg-red-500/20 text-red-100"
+            className={`mb-6 rounded-xl p-4 text-sm ${
+              messageType === "error"
+                ? "bg-red-500/15 text-red-100"
+                : messageType === "success"
+                  ? "bg-green-500/15 text-green-100"
                   : "bg-white/10 text-white/75"
             }`}
           >
@@ -657,531 +338,253 @@ export default function DevelopmentPage() {
           </div>
         )}
 
-        <div className="mb-8 grid gap-5 md:grid-cols-3">
-          <div className="rounded-3xl border border-[#D8F200]/20 bg-[#D8F200]/10 p-7">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#D8F200]">
-              AD Index
-            </p>
-
-            <p className="mt-3 text-6xl font-extrabold">
-              {adIndex}
-            </p>
-
-            <p className="mt-3 text-sm text-white/65">
-              Based on measurement
-              completion, freshness and
-              tracking consistency.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-white/10 p-7">
-            <p className="text-xs uppercase tracking-[0.18em] text-white/50">
-              Measurements Recorded
-            </p>
-
-            <p className="mt-3 text-4xl font-extrabold">
-              {measurements.length}
-            </p>
-
-            <p className="mt-3 text-sm text-white/60">
-              Across{" "}
-              {
-                latestMeasurements.filter(
-                  (item) =>
-                    item.latest
-                ).length
-              }{" "}
-              of{" "}
-              {
-                MEASUREMENT_TYPES.length
-              }{" "}
-              development areas.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-white/10 p-7">
-            <p className="text-xs uppercase tracking-[0.18em] text-white/50">
-              AD Status
-            </p>
-
-            <p className="mt-3 text-2xl font-extrabold">
-              {adIndex >= 80
-                ? "Excellent"
-                : adIndex >= 60
-                  ? "On Track"
-                  : adIndex >= 30
-                    ? "Building"
-                    : "Get Started"}
-            </p>
-
-            <p className="mt-3 text-sm text-white/60">
-              Don&apos;t forget to
-              update your AD.
-            </p>
-          </div>
+        <div className="mb-8 inline-flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-[#081642] p-2">
+          <button
+            type="button"
+            onClick={() => setTab("physical")}
+            className={`rounded-xl px-5 py-3 text-sm font-bold ${
+              tab === "physical"
+                ? "bg-[#D8F200] text-[#081642]"
+                : "text-white/70 hover:bg-white/10"
+            }`}
+          >
+            Physical Development
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("performance")}
+            className={`rounded-xl px-5 py-3 text-sm font-bold ${
+              tab === "performance"
+                ? "bg-[#D8F200] text-[#081642]"
+                : "text-white/70 hover:bg-white/10"
+            }`}
+          >
+            Fitness &amp; Performance
+          </button>
         </div>
 
-        <div className="mb-8 grid gap-5 lg:grid-cols-5">
-          {latestMeasurements.map(
-            (item) => {
-              const latest =
-                item.latest;
+        {tab === "performance" ? (
+          <PerformancePanel
+            athleteId={athleteId}
+            authUserId={authUserId}
+            canManage={canManage}
+          />
+        ) : (
+          <>
+            <div className="mb-8 grid gap-4 md:grid-cols-3">
+              <div className="rounded-3xl border border-[#D8F200]/20 bg-[#D8F200]/10 p-6">
+                <p className="text-xs font-bold uppercase text-[#D8F200]">AD Index</p>
+                <p className="mt-3 text-5xl font-extrabold">{adIndex}</p>
+                <p className="mt-2 text-xs text-white/60">
+                  Measurement completion, freshness and consistency.
+                </p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/10 p-6">
+                <p className="text-xs uppercase text-white/50">Measurements Recorded</p>
+                <p className="mt-3 text-4xl font-extrabold">{measurements.length}</p>
+                <p className="mt-2 text-xs text-white/60">
+                  {areas.filter((a) => a.latest).length} of {TYPES.length} development areas.
+                </p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/10 p-6">
+                <p className="text-xs uppercase text-white/50">AD Status</p>
+                <p className="mt-3 text-2xl font-extrabold">
+                  {adIndex >= 80
+                    ? "Excellent"
+                    : adIndex >= 60
+                      ? "On Track"
+                      : adIndex >= 30
+                        ? "Building"
+                        : "Get Started"}
+                </p>
+                <p className="mt-2 text-xs text-white/60">
+                  Keep your development record up to date.
+                </p>
+              </div>
+            </div>
 
-              const previous =
-                item.previous;
-
-              const percent =
-                percentageChange(
-                  previous?.value,
-                  latest?.value
-                );
-
-              const daysAgo =
-                latest
-                  ? calendarDaysBetween(
-                      latest.recorded_at,
-                      new Date()
-                    )
-                  : null;
-
-              return (
+            <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {areas.map((a) => (
                 <button
-                  key={item.type}
+                  key={a.type}
                   type="button"
-                  onClick={() =>
-                    setSelectedType(
-                      item.type
-                    )
-                  }
+                  onClick={() => setSelected(a.type)}
                   className={`rounded-2xl border p-5 text-left transition ${
-                    selectedType ===
-                    item.type
+                    selected === a.type
                       ? "border-[#D8F200] bg-[#D8F200]/10"
                       : "border-white/10 bg-white/10 hover:bg-white/15"
                   }`}
                 >
-                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-white/55">
-                    {item.type}
+                  <p className="text-xs font-bold uppercase text-white/55">{a.type}</p>
+                  <p className="mt-3 text-2xl font-extrabold">
+                    {a.latest ? `${a.latest.value} ${a.unit}` : "—"}
                   </p>
-
-                  <p className="mt-3 text-3xl font-extrabold">
-                    {latest
-                      ? `${latest.value} ${latest.unit}`
-                      : "—"}
+                  <p className="mt-3 text-sm text-white/60">
+                    {changeLabel(percentChange(a.previous?.value, a.latest?.value))}
                   </p>
-
-                  <p
-                    className={`mt-3 text-sm font-semibold ${
-                      percent !==
-                        null &&
-                      percent > 0
-                        ? "text-[#D8F200]"
-                        : "text-white/60"
-                    }`}
-                  >
-                    {changeLabel(
-                      percent
-                    )}
-                  </p>
-
                   <p className="mt-2 text-xs text-white/45">
-                    {daysAgo !==
-                    null
-                      ? `Updated ${daysAgo} days ago`
-                      : "Not measured yet"}
+                    {a.latest ? `Updated ${daysSince(a.latest.recorded_at)} days ago` : "Not measured yet"}
                   </p>
                 </button>
-              );
-            }
-          )}
-        </div>
+              ))}
+            </div>
 
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="space-y-6">
-            {latestMeasurements.map(
-              (item) => {
-                if (
-                  item.type !==
-                  selectedType
-                ) {
-                  return null;
-                }
+            <div className="grid gap-7 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="rounded-3xl border border-white/10 bg-white/10 p-6">
+                <p className="text-xs font-bold uppercase text-[#D8F200]">AD Detail</p>
+                <h2 className="mt-2 text-3xl font-extrabold">{selectedArea.type}</h2>
 
-                const latest =
-                  item.latest;
-
-                const previous =
-                  item.previous;
-
-                const first =
-                  item.first;
-
-                const sincePrevious =
-                  percentageChange(
-                    previous?.value,
-                    latest?.value
-                  );
-
-                const sinceFirst =
-                  percentageChange(
-                    first?.value,
-                    latest?.value
-                  );
-
-                return (
-                  <div
-                    key={item.type}
-                    className="rounded-3xl border border-white/10 bg-white/10 p-7 backdrop-blur"
-                  >
-                    <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
-                          AD Detail
-                        </p>
-
-                        <h2 className="mt-2 text-3xl font-extrabold">
-                          {
-                            item.type
-                          }
-                        </h2>
-                      </div>
-
-                      {latest && (
-                        <p className="text-sm text-white/55">
-                          {calendarDaysBetween(
-                            latest.recorded_at,
-                            new Date()
-                          )}{" "}
-                          days since
-                          last
-                          measured
-                        </p>
-                      )}
+                {selectedArea.latest ? (
+                  <>
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                      {[
+                        ["Current", `${selectedArea.latest.value} ${selectedArea.unit}`],
+                        [
+                          "Since Previous",
+                          changeLabel(
+                            percentChange(
+                              selectedArea.previous?.value,
+                              selectedArea.latest.value
+                            )
+                          ),
+                        ],
+                        [
+                          "Since First",
+                          changeLabel(
+                            percentChange(
+                              selectedArea.first?.value,
+                              selectedArea.latest.value
+                            )
+                          ),
+                        ],
+                        [
+                          "Age Tested",
+                          ageAtDate(
+                            profile?.date_of_birth || null,
+                            selectedArea.latest.recorded_at
+                          ),
+                        ],
+                      ].map(([label, display]) => (
+                        <div key={label} className="rounded-2xl bg-[#081642] p-5">
+                          <p className="text-xs uppercase text-white/50">{label}</p>
+                          <p className="mt-2 text-xl font-bold">{display}</p>
+                        </div>
+                      ))}
                     </div>
 
-                    {latest ? (
-                      <>
-                        <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                          <div className="rounded-2xl bg-[#081642] p-5">
-                            <p className="text-xs uppercase text-white/50">
-                              Current
-                            </p>
-
-                            <p className="mt-2 text-3xl font-extrabold">
-                              {
-                                latest.value
-                              }{" "}
-                              {
-                                latest.unit
-                              }
+                    <h3 className="mt-8 text-xl font-bold">History</h3>
+                    <div className="mt-4 space-y-2">
+                      {selectedArea.history.map((m, index) => (
+                        <div
+                          key={m.id}
+                          className="grid gap-3 rounded-xl bg-[#081642] p-4 sm:grid-cols-4"
+                        >
+                          <div>
+                            <p className="text-xs text-white/45">Measurement</p>
+                            <p className="mt-1 font-semibold">{m.value} {m.unit}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/45">Recorded</p>
+                            <p className="mt-1 text-sm">{formatDate(m.recorded_at)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-white/45">Athlete Age</p>
+                            <p className="mt-1 text-sm">
+                              {ageAtDate(profile?.date_of_birth || null, m.recorded_at)}
                             </p>
                           </div>
-
-                          <div className="rounded-2xl bg-[#081642] p-5">
-                            <p className="text-xs uppercase text-white/50">
-                              Since
-                              Previous
-                            </p>
-
-                            <p className="mt-2 text-2xl font-bold">
+                          <div>
+                            <p className="text-xs text-white/45">Change</p>
+                            <p className="mt-1 text-sm">
                               {changeLabel(
-                                sincePrevious
-                              )}
-                            </p>
-                          </div>
-
-                          <div className="rounded-2xl bg-[#081642] p-5">
-                            <p className="text-xs uppercase text-white/50">
-                              Since
-                              First
-                            </p>
-
-                            <p className="mt-2 text-2xl font-bold">
-                              {changeLabel(
-                                sinceFirst
-                              )}
-                            </p>
-                          </div>
-
-                          <div className="rounded-2xl bg-[#081642] p-5">
-                            <p className="text-xs uppercase text-white/50">
-                              Age
-                              Tested
-                            </p>
-
-                            <p className="mt-2 text-lg font-bold">
-                              {ageAtDate(
-                                profile?.date_of_birth ||
-                                  null,
-                                latest.recorded_at
+                                percentChange(
+                                  selectedArea.history[index + 1]?.value,
+                                  m.value
+                                )
                               )}
                             </p>
                           </div>
                         </div>
-
-                        <div className="mt-7">
-                          <h3 className="text-xl font-bold">
-                            History
-                          </h3>
-
-                          <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
-                            {item.history.map(
-                              (
-                                measurement,
-                                index
-                              ) => {
-                                const older =
-                                  item.history[
-                                    index +
-                                      1
-                                  ];
-
-                                const change =
-                                  percentageChange(
-                                    older?.value,
-                                    measurement.value
-                                  );
-
-                                return (
-                                  <div
-                                    key={
-                                      measurement.id
-                                    }
-                                    className="grid gap-3 border-b border-white/10 bg-[#081642] p-4 last:border-b-0 md:grid-cols-[1fr_1fr_1fr_1fr]"
-                                  >
-                                    <div>
-                                      <p className="text-xs text-white/45">
-                                        Measurement
-                                      </p>
-
-                                      <p className="mt-1 font-bold">
-                                        {
-                                          measurement.value
-                                        }{" "}
-                                        {
-                                          measurement.unit
-                                        }
-                                      </p>
-                                    </div>
-
-                                    <div>
-                                      <p className="text-xs text-white/45">
-                                        Recorded
-                                      </p>
-
-                                      <p className="mt-1 text-sm">
-                                        {formatDate(
-                                          measurement.recorded_at
-                                        )}
-                                      </p>
-                                    </div>
-
-                                    <div>
-                                      <p className="text-xs text-white/45">
-                                        Athlete
-                                        Age
-                                      </p>
-
-                                      <p className="mt-1 text-sm">
-                                        {ageAtDate(
-                                          profile?.date_of_birth ||
-                                            null,
-                                          measurement.recorded_at
-                                        )}
-                                      </p>
-                                    </div>
-
-                                    <div>
-                                      <p className="text-xs text-white/45">
-                                        Change
-                                      </p>
-
-                                      <p className="mt-1 text-sm font-semibold">
-                                        {changeLabel(
-                                          change
-                                        )}
-                                      </p>
-                                    </div>
-                                  </div>
-                                );
-                              }
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="mt-6 rounded-2xl bg-[#081642] p-6 text-white/65">
-                        No{" "}
-                        {item.type.toLowerCase()}{" "}
-                        measurements
-                        recorded yet.
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-            )}
-          </div>
-
-          <aside className="rounded-3xl border border-white/10 bg-white/10 p-7 backdrop-blur">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8F200]">
-              Update AD
-            </p>
-
-            <h2 className="mt-2 text-2xl font-bold">
-              Add Measurement
-            </h2>
-
-            {!canManageMetrics ? (
-              <div className="mt-6 rounded-2xl border border-white/10 bg-[#081642] p-5">
-                <p className="font-bold">
-                  View only
-                </p>
-
-                <p className="mt-2 text-sm leading-6 text-white/60">
-                  You can view this athlete&apos;s
-                  development record, but you do not
-                  have permission to add measurements.
-                </p>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-6 rounded-xl bg-[#081642] p-5 text-white/60">
+                    No measurements recorded yet.
+                  </p>
+                )}
               </div>
-            ) : (
-            <form
-              onSubmit={
-                handleAddMeasurement
-              }
-              className="mt-6 space-y-5"
-            >
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Measurement
-                </label>
 
-                <select
-                  value={
-                    selectedType
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setSelectedType(
-                      event
-                        .target
-                        .value as MeasurementType
-                    )
-                  }
-                  className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
-                >
-                  {MEASUREMENT_TYPES.map(
-                    (item) => (
-                      <option
-                        key={
-                          item.type
-                        }
-                        value={
-                          item.type
-                        }
+              <aside className="self-start rounded-3xl border border-white/10 bg-white/10 p-6">
+                <p className="text-xs font-bold uppercase text-[#D8F200]">Update AD</p>
+                <h2 className="mt-2 text-2xl font-bold">Add Measurement</h2>
+
+                {!canManage ? (
+                  <p className="mt-5 rounded-xl bg-[#081642] p-4 text-sm text-white/65">
+                    View only. You do not have permission to add measurements.
+                  </p>
+                ) : (
+                  <form onSubmit={addMeasurement} className="mt-6 space-y-5">
+                    <div>
+                      <label className="mb-2 block text-sm">Measurement</label>
+                      <select
+                        className={inputStyle}
+                        value={selected}
+                        onChange={(e) => setSelected(e.target.value as MeasurementType)}
                       >
-                        {
-                          item.type
-                        }
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Value (
-                  {
-                    MEASUREMENT_TYPES.find(
-                      (item) =>
-                        item.type ===
-                        selectedType
-                    )?.unit
-                  }
-                  )
-                </label>
-
-                <input
-                  type="number"
-                  step="0.1"
-                  value={value}
-                  onChange={(
-                    event
-                  ) =>
-                    setValue(
-                      event
-                        .target
-                        .value
-                    )
-                  }
-                  placeholder="Enter measurement"
-                  className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Measurement Date
-                </label>
-
-                <input
-                  type="date"
-                  value={
-                    recordedDate
-                  }
-                  max={getLocalDateString()}
-                  onChange={(
-                    event
-                  ) =>
-                    setRecordedDate(
-                      event
-                        .target
-                        .value
-                    )
-                  }
-                  className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Notes
-                </label>
-
-                <textarea
-                  value={notes}
-                  onChange={(
-                    event
-                  ) =>
-                    setNotes(
-                      event
-                        .target
-                        .value
-                    )
-                  }
-                  rows={3}
-                  placeholder="Optional"
-                  className="w-full rounded-xl bg-[#081642] px-4 py-3 outline-none"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full rounded-xl bg-[#D8F200] px-5 py-3 font-bold text-[#0B1F5C] disabled:opacity-60"
-              >
-                {saving
-                  ? "Updating AD..."
-                  : "Update AD"}
-              </button>
-            </form>
-            )}
-          </aside>
-        </div>
+                        {TYPES.map((t) => (
+                          <option key={t.type} value={t.type}>{t.type}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm">
+                        Value ({selectedArea.unit})
+                      </label>
+                      <input
+                        className={inputStyle}
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm">Measurement Date</label>
+                      <input
+                        className={inputStyle}
+                        type="date"
+                        max={today()}
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm">Notes</label>
+                      <textarea
+                        className={inputStyle}
+                        rows={3}
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="w-full rounded-xl bg-[#D8F200] px-5 py-3 font-bold text-[#081642] disabled:opacity-50"
+                    >
+                      {saving ? "Saving..." : "Update AD"}
+                    </button>
+                  </form>
+                )}
+              </aside>
+            </div>
+          </>
+        )}
       </section>
     </AppShell>
   );
