@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -134,7 +135,10 @@ export default function Navbar() {
       return pathname === "/dashboard";
     }
 
-    return pathname.startsWith(href);
+    return (
+      pathname === href ||
+      pathname.startsWith(`${href}/`)
+    );
   };
 
   const profileIsActive =
@@ -188,6 +192,11 @@ export default function Navbar() {
       label: "Teams",
       href: "/dashboard/teams",
       icon: "◎",
+    },
+    {
+      label: "AD",
+      href: "/dashboard/development",
+      icon: "↗",
     },
   ];
 
@@ -332,7 +341,8 @@ export default function Navbar() {
           )}
 
           <nav
-            className="fixed left-3 right-3 z-[70] grid grid-cols-5 rounded-[22px] border border-white/10 bg-[#0B1F5C]/95 p-1.5 shadow-2xl backdrop-blur-xl md:hidden"
+            aria-label="Mobile navigation"
+            className="fixed left-3 right-3 z-[70] grid grid-cols-6 rounded-[22px] border border-white/10 bg-[#0B1F5C]/95 p-1.5 shadow-2xl backdrop-blur-xl md:hidden"
             style={{
               bottom: "calc(env(safe-area-inset-bottom) + 10px)",
             }}
@@ -344,13 +354,17 @@ export default function Navbar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex min-h-[58px] flex-col items-center justify-center rounded-2xl px-1 text-center transition ${
+                  aria-current={active ? "page" : undefined}
+                  className={`flex min-h-[58px] min-w-0 flex-col items-center justify-center rounded-2xl px-0.5 text-center transition ${
                     active
                       ? "bg-white/10 text-[#D8F200]"
                       : "text-white/65"
                   }`}
                 >
-                  <span className="text-lg leading-none">
+                  <span
+                    aria-hidden="true"
+                    className="text-lg leading-none"
+                  >
                     {item.icon}
                   </span>
 
@@ -363,13 +377,19 @@ export default function Navbar() {
 
             <Link
               href={publicProfileHref}
-              className={`flex min-h-[58px] flex-col items-center justify-center rounded-2xl px-1 text-center transition ${
+              aria-current={profileIsActive ? "page" : undefined}
+              className={`flex min-h-[58px] min-w-0 flex-col items-center justify-center rounded-2xl px-0.5 text-center transition ${
                 profileIsActive
                   ? "bg-white/10 text-[#D8F200]"
                   : "text-white/65"
               }`}
             >
-              <span className="text-lg leading-none">◉</span>
+              <span
+                aria-hidden="true"
+                className="text-lg leading-none"
+              >
+                ◉
+              </span>
 
               <span className="mt-1 text-[10px] font-bold">
                 Profile
@@ -379,13 +399,19 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setMoreOpen((current) => !current)}
-              className={`flex min-h-[58px] flex-col items-center justify-center rounded-2xl px-1 text-center transition ${
+              aria-expanded={moreOpen}
+              className={`flex min-h-[58px] min-w-0 flex-col items-center justify-center rounded-2xl px-0.5 text-center transition ${
                 moreOpen || moreIsActive
                   ? "bg-white/10 text-[#D8F200]"
                   : "text-white/65"
               }`}
             >
-              <span className="text-xl leading-none">•••</span>
+              <span
+                aria-hidden="true"
+                className="text-xl leading-none"
+              >
+                •••
+              </span>
 
               <span className="mt-1 text-[10px] font-bold">
                 More

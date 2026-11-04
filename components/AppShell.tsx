@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -10,9 +11,10 @@ const navItems = [
   { label: "Explore", href: "/explore" },
 
   { label: "Teams", href: "/dashboard/teams" },
+  { label: "AD", href: "/dashboard/development" },
   { label: "Family", href: "/dashboard/family" },
 
-  { label: "Athlete", href: "/dashboard/public-profile" },
+  { label: "My Profile", href: "/dashboard/public-profile" },
 
   { label: "Experience", href: "/dashboard/experience" },
   { label: "Achievements", href: "/dashboard/achievements" },
@@ -55,16 +57,16 @@ export default function AppShell({
 
                 return (
                   <Link
-  key={item.href}
-  href={item.href}
-  className={`block rounded-xl px-4 py-3 text-sm font-semibold transition ${
-    isActive
-      ? "bg-[#D8F200] text-[#0B1F5C]"
-      : "bg-[#081642] text-white/80 hover:bg-white/15 hover:text-white"
-  }`}
->
-  {item.label}
-</Link>
+                    key={item.href}
+                    href={item.href}
+                    className={`block rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                      isActive
+                        ? "bg-[#D8F200] text-[#0B1F5C]"
+                        : "bg-[#081642] text-white/80 hover:bg-white/15 hover:text-white"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
                 );
               })}
             </nav>
